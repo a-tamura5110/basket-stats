@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="バスケスタッツ">
+<title>バスケスタッツ</title>
+<style>
+:root{
+  --navy:#1e3a5f; --navy-d:#152a46; --orange:#e8722a; --orange-d:#c85e1e;
+  --bg:#f4f2ec; --card:#ffffff; --line:#dcd8cc; --ink:#2b2b2b; --sub:#8a8578;
+  --ok:#2e8b57; --ng:#c0392b; --blue:#2563a8; --purple:#6b4fa0; --teal:#0e7a70; --gray:#5b6770;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+  background:var(--bg); color:var(--ink); touch-action:manipulation;
+}
+body.scrolly{padding-bottom:40px;}
+header{
+  background:var(--navy); color:#fff; position:sticky; top:0; z-index:50;
+  padding:calc(env(safe-area-inset-top) + 8px) 14px 0 14px;
+}
+.hrow{display:flex; align-items:center; gap:12px;}
+h1{font-size:17px; margin:0; padding:4px 0 8px; font-weight:700; letter-spacing:.04em;}
+h1 small{font-weight:400; opacity:.65; font-size:11px; margin-left:8px;}
+nav{display:flex; gap:2px;}
+nav button{
+  flex:1; max-width:120px; border:none; background:transparent; color:#cfd8e3;
+  font-size:13.5px; padding:10px 2px 12px; border-radius:8px 8px 0 0; font-weight:600;
+}
+nav button.on{background:var(--bg); color:var(--navy);}
+main{padding:14px; max-width:1200px; margin:0 auto;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px;}
+.btn{
+  display:inline-block; border:none; border-radius:10px; font-weight:700;
+  padding:12px 18px; font-size:15px; color:#fff; background:var(--navy);
+}
+.btn:active{opacity:.75;}
+.btn.orange{background:var(--orange);}
+.btn.ghost{background:#fff; color:var(--navy); border:1.5px solid var(--navy);}
+.btn.red{background:var(--ng);}
+.btn.dark{background:#3d4a5c;}
+.btn.small{padding:7px 12px; font-size:13px; border-radius:8px;}
+.muted{color:var(--sub); font-size:12px;}
+input[type=text],input[type=date],input[type=number],select{
+  font-size:16px; padding:10px; border:1px solid var(--line); border-radius:8px;
+  background:#fff; width:100%;
+}
+select{-webkit-appearance:none; appearance:none;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8578' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; padding-right:32px;}
+.gtype{display:inline-block; background:#e9e4d6; color:#6b6350; font-size:11px; font-weight:700;
+  border-radius:6px; padding:2px 8px; vertical-align:2px;}
+label.fld{display:block; margin-bottom:10px; font-size:13px; font-weight:600; color:var(--navy);}
+label.fld input{margin-top:4px; font-weight:400;}
+
+/* game screen */
+.gamehead{display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:8px;}
+.gamehead .title{font-size:16px; font-weight:700;}
+.spacer{flex:1;}
+.ptog{display:flex; border:1.5px solid var(--navy); border-radius:10px; overflow:hidden;}
+.ptog button{border:none; background:#fff; color:var(--navy); font-weight:800; font-size:14px; padding:9px 14px;}
+.ptog button.on{background:var(--orange); color:#fff;}
+.scorebar{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+.qbox{background:#fff; border:1px solid var(--line); border-radius:9px; padding:3px 7px 5px; text-align:center; display:flex; align-items:center; gap:2px;}
+.qbox .ql{font-size:11px; color:var(--sub); font-weight:700; margin-right:5px;}
+.qbox input{width:42px; padding:5px 2px; text-align:center; font-size:14px; border:1px solid var(--line); border-radius:6px;}
+.qbox .dash{margin:0 3px; color:var(--sub);}
+.totalbox{background:var(--navy); color:#fff; border-radius:9px; padding:4px 12px; text-align:center; display:flex; align-items:center; gap:8px;}
+.totalbox .tl{font-size:9.5px; opacity:.7; line-height:1.2;}
+.totalbox .tv{font-size:17px; font-weight:800;}
+.editband{background:#f6c944; color:#5b4a00; font-weight:800; text-align:center; border-radius:10px; padding:9px; margin-bottom:8px;}
+
+/* player rows (高さは --rowH で人数に応じて自動調整) */
+.prow{
+  display:flex; align-items:center; gap:8px; background:var(--card);
+  border:1px solid var(--line); border-radius:10px; padding:2px 10px; margin-bottom:4px;
+  height:var(--rowH,54px);
+}
+.pid{width:104px; flex-shrink:0; white-space:nowrap; overflow:hidden;}
+.pid .pnum{display:inline-block; background:var(--navy); color:#fff; font-weight:800;
+  border-radius:7px; min-width:30px; text-align:center; padding:2px 3px; font-size:14px;}
+.pid .pname{font-weight:700; font-size:14px; margin-left:5px;}
+.pbtns{display:flex; gap:4px; flex-wrap:nowrap; align-items:center;}
+.abtn{
+  border:none; border-radius:8px; font-weight:800; font-size:12.5px;
+  width:54px; height:calc(var(--rowH,54px) - 12px); min-height:30px; max-height:46px;
+  color:#fff; line-height:1.1; white-space:nowrap;
+}
+.abtn:active{transform:scale(.93);}
+.abtn.sok{background:var(--ok);} .abtn.sng{background:var(--ng);}
+.abtn.fok{background:var(--ok); opacity:.75;} .abtn.fng{background:var(--ng); opacity:.75;}
+.abtn.re{background:var(--blue);} .abtn.bl{background:var(--purple);}
+.abtn.st{background:var(--orange);} .abtn.as{background:var(--teal);}
+.abtn.to{background:var(--gray);} .abtn.fo{background:#8a6d1a;}
+.abtn b{font-size:13px; margin-left:2px;}
+.pstats{margin-left:auto; flex-shrink:0; white-space:nowrap; text-align:right;
+  font-size:12.5px; font-weight:700; color:var(--navy); line-height:1.35;}
+.pstats .mini{color:var(--sub); font-weight:600; font-size:11.5px;}
+.pstats .pts{font-size:17px; font-weight:800; color:var(--orange-d); margin-left:6px;}
+.pstats .foul4{color:var(--ng);}
+
+/* court */
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+.chip{border:1.5px solid var(--navy); background:#fff; color:var(--navy); border-radius:20px;
+  padding:8px 14px; font-weight:700; font-size:14px;}
+.chip.on{background:var(--navy); color:#fff;}
+.modetog{display:flex; gap:8px; margin-bottom:10px; align-items:center;}
+.modetog button.m{flex:1; max-width:200px; border:none; border-radius:10px; padding:14px; font-size:16px; font-weight:800; color:#fff; opacity:.35;}
+.modetog button.m.on{opacity:1; box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.modetog .mok{background:var(--ok);} .modetog .mng{background:var(--ng);}
+.courtwrap{display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;}
+.courtbox{flex:1; min-width:320px; max-width:540px;}
+svg .zone{cursor:pointer;}
+svg .zone:active{opacity:.75;}
+.zlabel{font-weight:800; fill:#1e3a5f; pointer-events:none;}
+.zcount{font-weight:700; fill:#333; pointer-events:none;}
+.stepbtn{border:none; border-radius:6px; width:30px; height:30px; font-size:16px; font-weight:800; color:#fff; background:var(--navy); margin:0 2px;}
+.stepbtn.minus{background:#9aa4b0;}
+
+/* tables */
+table.stats{width:100%; border-collapse:collapse; background:#fff; font-size:13px;}
+table.stats th,table.stats td{border:1px solid var(--line); padding:6px 6px; text-align:center;}
+table.stats th{background:var(--navy); color:#fff; font-weight:700; font-size:12px;}
+table.stats th.zh{background:#2c4c78;}
+table.stats td.nm{text-align:left; font-weight:700; white-space:nowrap;}
+table.stats tr.total td{background:#f0ede4; font-weight:800;}
+table.stats td .okc{color:var(--ok); font-weight:700;}
+table.stats td .ngc{color:var(--ng); font-weight:700;}
+.tablewrap{overflow-x:auto;}
+h2.sec{font-size:16px; color:var(--navy); margin:4px 0 10px;}
+
+/* history list */
+.gitem{display:flex; align-items:center; gap:12px; padding:14px 6px; border-bottom:1px solid var(--line);}
+.gitem:active{background:#efece3;}
+.gitem .gd{font-size:13px; color:var(--sub); width:100px;}
+.gitem .gvs{font-weight:700; font-size:16px; flex:1;}
+.gitem .gsc{font-weight:800; font-size:20px; color:var(--navy);}
+.gitem .win{color:var(--ok);} .gitem .lose{color:var(--ng);}
+
+/* roster */
+.ritem{display:flex; align-items:center; gap:12px; padding:7px 4px; border-bottom:1px solid var(--line);}
+.ritem .pnum{background:var(--navy); color:#fff; font-weight:800; border-radius:8px; min-width:44px; text-align:center; padding:8px 4px; font-size:16px; flex-shrink:0;}
+.ritem .pnum.off{background:#b8b2a4;}
+.ritem input{flex:1; max-width:340px;}
+
+/* modal */
+#modal-root{position:fixed; inset:0; z-index:100; display:none;}
+#modal-root.show{display:flex; align-items:center; justify-content:center; background:rgba(20,25,35,.55);}
+.modal{background:#fff; border-radius:16px; padding:20px; width:min(600px, 94vw); max-height:86vh; overflow-y:auto;}
+.modal h3{margin:0 0 14px; color:var(--navy); font-size:17px;}
+.modal h4{margin:14px 0 4px; color:var(--orange-d); font-size:14px;}
+.step{display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line);}
+.step .sl{font-weight:600; font-size:14px;}
+.step .ctr{display:flex; align-items:center; gap:10px;}
+.step .ctr button{width:42px; height:38px; border:none; border-radius:10px; font-size:20px; font-weight:800; background:var(--navy); color:#fff;}
+.step .ctr button.minus{background:#9aa4b0;}
+.step .val{font-size:18px; font-weight:800; min-width:34px; text-align:center;}
+.mfoot{display:flex; gap:10px; margin-top:16px; justify-content:flex-end;}
+.checkrow{display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid var(--line); font-size:15px; font-weight:600;}
+.checkrow input{width:22px; height:22px;}
+.checkrow .pnum{background:var(--navy); color:#fff; border-radius:8px; min-width:34px; text-align:center; padding:3px 4px;}
+.legend{font-size:11.5px; color:var(--sub); margin:2px 0 8px; line-height:1.7;}
+.empty{padding:34px 10px; text-align:center; color:var(--sub); font-size:14px;}
+.rowflex{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;}
+.rowflex .grow{flex:1; min-width:120px;}
+#toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  background:#20262e; color:#fff; padding:11px 20px; border-radius:22px; font-size:13.5px;
+  font-weight:600; opacity:0; transition:opacity .3s; pointer-events:none; z-index:300; white-space:nowrap; max-width:92vw; overflow:hidden; text-overflow:ellipsis;}
+#toast.show{opacity:.94;}
+@media (max-width:1100px){
+  .pid{width:78px;} .pid .pname{font-size:12px; margin-left:3px;}
+  .abtn{width:40px; font-size:10.5px;}
+  .abtn b{font-size:11.5px; margin-left:2px;}
+  .pstats{font-size:10.5px;}
+  .pstats .mini{font-size:9.5px;}
+  .pstats .pts{font-size:14px; margin-left:4px;}
+}
+/* PDF出力(印刷) */
+@media print{
+  header, .noprint, #toast, #modal-root{display:none !important;}
+  body{background:#fff;}
+  body.scrolly{padding-bottom:0;}
+  main{padding:0; max-width:none;}
+  .card{border:none; padding:4px 0; margin-bottom:8px; break-inside:avoid;}
+  table.stats{font-size:11px;}
+  table.stats th{background:#e8e4d8 !important; color:#222 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  .courtbox{max-width:300px;}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <h1>🏀 バスケスタッツ<small id="hd-sub"></small></h1>
+  </div>
+  <nav>
+    <button id="tab-game" class="on" onclick="go('game')">試合</button>
+    <button id="tab-court" onclick="go('court')">コート</button>
+    <button id="tab-history" onclick="go('history')">履歴</button>
+    <button id="tab-total" onclick="go('total')">通算</button>
+    <button id="tab-roster" onclick="go('roster')">メンバー</button>
+    <button id="tab-sync" onclick="go('sync')">設定</button>
+  </nav>
+</header>
+<main id="app"></main>
+<div id="modal-root"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ================= storage & migration ================= */
+const K_ROSTER="bsk_roster_v2", K_GAMES="bsk_games_v2", K_ACTIVE="bsk_active_v2", K_SYNC="bsk_sync_v1";
+const NUM_MIN=4, NUM_MAX=20;
+const ZONES=["goal","lay","jump","long"];
+const ZNAME={goal:"ゴール下", lay:"レイアップ", jump:"ジャンプシュート", long:"ロングシュート"};
+const GAME_TYPES=["大会","県予選","県大会","キッズ試合","練習試合"];
+const load=(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}};
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+
+const emptyZ=()=>({goal:{ok:0,ng:0},lay:{ok:0,ng:0},jump:{ok:0,ng:0},long:{ok:0,ng:0}});
+const EMPTY=()=>({sh:0,gl:0,fta:0,ftm:0,re:0,bl:0,st:0,cu:0,as:0,to:0,f:0,p:{},z:emptyZ()});
+
+/* 旧形式(v1/v2)→v3への変換。v3は p(ピリオド別シュート)と z(エリア別)を持つ */
+function migrateStats(s){
+  if(!s) return EMPTY();
+  const out=EMPTY();
+  out.re=s.re||0; out.bl=s.bl||0;
+  out.st=(s.st!==undefined)?s.st:(s.cu||0); out.cu=out.st;
+  out.as=s.as||0; out.to=s.to||0; out.f=s.f||0;
+  if(s.z){ ZONES.forEach(k=>{ if(s.z[k]) out.z[k]={ok:s.z[k].ok||0,ng:s.z[k].ng||0}; }); }
+  if(s.p){
+    for(const k in s.p){ const q=s.p[k]; out.p[k]={gl:q.gl||0,sh:q.sh||0,ftm:q.ftm||0,fta:q.fta||0}; }
+  }else if(s.sh1!==undefined){
+    out.p[0]={gl:(s.gl1||0)+(s.gl2||0), sh:(s.sh1||0)+(s.sh2||0), ftm:s.ftm||0, fta:s.fta||0};
+  }else if(s.sh!==undefined||s.gl!==undefined||s.fta!==undefined){
+    out.p[0]={gl:s.gl||0, sh:s.sh||0, ftm:s.ftm||0, fta:s.fta||0};
+  }
+  recalcTotals(out);
+  return out;
+}
+function recalcTotals(s){
+  let gl=0,sh=0,ftm=0,fta=0;
+  for(const k in s.p){ const q=s.p[k]; gl+=q.gl; sh+=q.sh; ftm+=q.ftm; fta+=q.fta; }
+  s.gl=gl; s.sh=sh; s.ftm=ftm; s.fta=fta; s.cu=s.st;
+}
+function migrateGame(g){
+  const ns={};
+  (g.members||[]).forEach(n=>ns[n]=migrateStats(g.stats&&g.stats[n]));
+  g.stats=ns;
+  return g;
+}
+/* v1 roster/games からの引き継ぎ(過去バージョン利用者向け・既存処理を維持) */
+function migrateV1(){
+  if(localStorage.getItem(K_ROSTER)===null && localStorage.getItem("bsk_roster_v1")!==null){
+    const oldR=load("bsk_roster_v1",[]);
+    const r={};
+    oldR.forEach(p=>{ const n=parseInt(p.num,10); if(n>=NUM_MIN&&n<=NUM_MAX&&!r[n]) r[n]=p.name; });
+    save(K_ROSTER,r);
+    const oldG=load("bsk_games_v1",[]);
+    const idName={}; oldR.forEach(p=>idName[p.id]=p);
+    const newG=oldG.map(g=>{
+      const members=[], stats={}, snap={};
+      (g.members||[]).forEach(id=>{
+        const info=(g.rosterSnap&&g.rosterSnap[id])||idName[id]||{num:"?",name:"(不明)"};
+        const key=String(info.num);
+        members.push(key); snap[key]=info.name;
+        stats[key]=g.stats&&g.stats[id];
+      });
+      return {id:g.id, date:g.date, opponent:g.opponent, quarters:g.quarters, members, stats, nameSnap:snap};
+    });
+    save(K_GAMES,newG);
+  }
+}
+migrateV1();
+let roster=load(K_ROSTER,{});
+let games=load(K_GAMES,[]).map(migrateGame);
+save(K_GAMES,games);
+let active=load(K_ACTIVE,null);
+if(active){ migrateGame(active); if(!active.per) active.per=1; if(!active.log) active.log=[]; save(K_ACTIVE,active); }
+let syncCfg=load(K_SYNC,{url:"",key:"basket2026",last:""});
+
+let view="game", histSel=null, totSel=null;
+let selPlayer=null, courtMode="ok", courtEdit=false;
+
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function pts(s){return s.gl*2 + s.ftm;}
+function pct(g,a){return a>0 ? Math.round(g/a*100)+"%" : "-";}
+function fmtDate(d){ if(!d) return ""; const p=d.split("-"); return p.length===3? `${p[0]}.${Number(p[1])}.${Number(p[2])}` : d; }
+function nameForGame(g,num){ return (g.nameSnap&&g.nameSnap[num])||roster[num]||""; }
+function perGet(s,per){ if(!s.p[per]) s.p[per]={gl:0,sh:0,ftm:0,fta:0}; return s.p[per]; }
+function teamZone(g,k){ return g.members.reduce((a,n)=>{const z=(g.stats[n]&&g.stats[n].z&&g.stats[n].z[k])||{ok:0,ng:0}; return {ok:a.ok+z.ok, ng:a.ng+z.ng};},{ok:0,ng:0}); }
+function hasZone(g){ return g.members.some(n=>{const z=g.stats[n]&&g.stats[n].z; return z&&ZONES.some(k=>z[k].ok+z[k].ng>0);}); }
+function hasPeriod(g){ return g.members.some(n=>{const p=g.stats[n]&&g.stats[n].p; return p&&[1,2,3,4].some(i=>p[i]&&(p[i].sh>0||p[i].fta>0));}); }
+function zText(o){ const att=o.ok+o.ng; return `${att}本 ○${o.ok} ×${o.ng} (${pct(o.ok,att)})`; }
+
+function toast(m){
+  const t=document.getElementById("toast");
+  t.textContent=m; t.classList.add("show");
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600);
+}
+
+/* ================= nav ================= */
+function go(v){ view=v; histSel=null; render(); }
+function setTabs(){
+  ["game","court","history","total","roster","sync"].forEach(t=>{
+    document.getElementById("tab-"+t).classList.toggle("on", view===t);
+  });
+}
+function render(){
+  setTabs();
+  const app=document.getElementById("app");
+  document.getElementById("hd-sub").textContent = active? `${fmtDate(active.date)} vs ${active.opponent}${active.editing?"(編集中)":""}` : "";
+  if(view==="game") app.innerHTML = active? gameHTML() : newGameHTML();
+  else if(view==="court") app.innerHTML = courtHTML();
+  else if(view==="history") app.innerHTML = histSel? gameDetailHTML(games.find(g=>g.id===histSel)) : historyHTML();
+  else if(view==="total") app.innerHTML = totalHTML();
+  else if(view==="sync") app.innerHTML = syncHTML();
+  else app.innerHTML = rosterHTML();
+  fitRows();
+}
+
+/* ================= new game ================= */
+function registeredNums(){
+  const arr=[];
+  for(let n=NUM_MIN;n<=NUM_MAX;n++){ if(roster[n]&&roster[n].trim()) arr.push(String(n)); }
+  return arr;
+}
+function newGameHTML(){
+  const today=new Date(); const iso=today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+  const nums=registeredNums();
+  if(nums.length===0){
+    return `<div class="card"><h2 class="sec">はじめに</h2>
+      <p>まず「メンバー」タブで選手の名前を入力してください。</p>
+      <button class="btn orange" onclick="go('roster')">メンバー登録へ</button></div>`;
+  }
+  const checks=nums.map(n=>`<label class="checkrow"><input type="checkbox" class="mem" value="${n}" checked><span class="pnum">${n}</span> ${esc(roster[n])}</label>`).join("");
+  const typeOpts=GAME_TYPES.map(t=>`<option value="${t}">${t}</option>`).join("");
+  return `<div class="card">
+    <h2 class="sec">新しい試合を開始</h2>
+    <div class="rowflex">
+      <label class="fld grow">日付<input type="date" id="ng-date" value="${iso}"></label>
+      <label class="fld grow">試合種別<select id="ng-type"><option value="">選択してください</option>${typeOpts}</select></label>
+      <label class="fld grow">対戦相手<input type="text" id="ng-opp" placeholder="例: エターナル"></label>
+    </div>
+    <h2 class="sec" style="margin-top:14px;">出場メンバー</h2>
+    ${checks}
+    <div style="margin-top:16px;"><button class="btn orange" style="width:100%;padding:16px;" onclick="startGame()">試合開始</button></div>
+  </div>`;
+}
+function startGame(){
+  const date=document.getElementById("ng-date").value;
+  const type=document.getElementById("ng-type").value;
+  const opp=document.getElementById("ng-opp").value.trim()||"相手チーム";
+  const nums=[...document.querySelectorAll(".mem:checked")].map(c=>c.value);
+  if(nums.length===0){ alert("出場メンバーを1人以上選んでください"); return; }
+  const stats={}, snap={};
+  nums.forEach(n=>{ stats[n]=EMPTY(); snap[n]=roster[n]; });
+  active={ id:uid(), date, type, opponent:opp, per:1,
+    quarters:[{us:"",th:""},{us:"",th:""},{us:"",th:""},{us:"",th:""}],
+    stats, log:[], members:nums, nameSnap:snap };
+  selPlayer=null;
+  save(K_ACTIVE,active); render();
+}
+
+/* ================= game screen ================= */
+function gameHTML(){
+  const qs=active.quarters.map((q,i)=>`
+    <div class="qbox"><span class="ql">${i+1}P</span>
+      <input type="number" inputmode="numeric" value="${q.us}" placeholder="自" onchange="setQ(${i},'us',this.value)"><span class="dash">-</span><input type="number" inputmode="numeric" value="${q.th}" placeholder="相" onchange="setQ(${i},'th',this.value)">
+    </div>`).join("");
+  const auto=active.members.reduce((a,n)=>a+pts(active.stats[n]||EMPTY()),0);
+  const rows=active.members.map(n=>playerRowHTML(n)).join("");
+  const editBand=active.editing?`<div class="editband">✏ 保存済みの試合を編集中 — 修正が終わったら「保存して終了」を押してください</div>`:"";
+  return `
+  ${editBand}
+  <div class="gamehead">
+    <div class="title">vs ${esc(active.opponent)}${active.type?` <span class="gtype">${esc(active.type)}</span>`:""} <span class="muted">${fmtDate(active.date)}</span></div>
+    <div class="ptog">${[1,2,3,4].map(i=>`<button class="${active.per===i?'on':''}" onclick="setPer(${i})">${i}P</button>`).join("")}</div>
+    <div class="scorebar">${qs}
+      <div class="totalbox"><div class="tl">自動<br>計算</div><div class="tv">${auto}点</div></div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn dark small undo-btn" onclick="undo()">↩ 戻す${active.log.length?` (${active.log.length})`:""}</button>
+    <button class="btn ghost small" onclick="helpModal()">?</button>
+    ${active.editing
+      ? `<button class="btn ghost small" onclick="cancelEdit()">編集をやめる</button>
+         <button class="btn orange small" onclick="finishEdit()">保存して終了</button>`
+      : `<button class="btn ghost small" onclick="cancelGame()">破棄</button>
+         <button class="btn red small" onclick="endGame()">試合終了</button>`}
+  </div>
+  <div id="prows">${rows}</div>`;
+}
+function playerRowHTML(n){
+  const name=nameForGame(active,n);
+  const s=active.stats[n]||EMPTY();
+  return `<div class="prow" id="row-${n}">
+    <div class="pid" onclick="openFix('${n}')">
+      <span class="pnum">${n}</span><span class="pname">${esc(name)}</span>
+    </div>
+    <div class="pbtns">
+      <button class="abtn sok" onclick="rec('${n}','sok')">S○<b>${s.gl}</b></button>
+      <button class="abtn sng" onclick="rec('${n}','sng')">S×<b>${s.sh-s.gl}</b></button>
+      <button class="abtn fok" onclick="rec('${n}','fok')">FT○<b>${s.ftm}</b></button>
+      <button class="abtn fng" onclick="rec('${n}','fng')">FT×<b>${s.fta-s.ftm}</b></button>
+      <button class="abtn re" onclick="rec('${n}','re')">R<b>${s.re}</b></button>
+      <button class="abtn bl" onclick="rec('${n}','bl')">B<b>${s.bl}</b></button>
+      <button class="abtn st" onclick="rec('${n}','st')">ST<b>${s.st}</b></button>
+      <button class="abtn as" onclick="rec('${n}','as')">A<b>${s.as}</b></button>
+      <button class="abtn to" onclick="rec('${n}','to')">TO<b>${s.to}</b></button>
+      <button class="abtn fo" onclick="rec('${n}','fo')">F<b>${s.f}</b></button>
+    </div>
+    <div class="pstats">
+      S ${s.gl}/${s.sh} (${pct(s.gl,s.sh)})　FT ${s.ftm}/${s.fta}<br>
+      <span class="mini">R${s.re} B${s.bl} ST${s.st} A${s.as} TO${s.to} <span class="${s.f>=4?'foul4':''}">F${s.f}</span></span><span class="pts">${pts(s)}点</span>
+    </div>
+  </div>`;
+}
+function refreshRow(n){
+  const el=document.getElementById("row-"+n);
+  if(el){ el.outerHTML=playerRowHTML(n); }
+  const ub=document.querySelector(".undo-btn");
+  if(ub) ub.textContent="↩ 戻す"+(active.log.length?` (${active.log.length})`:"");
+  const tv=document.querySelector(".totalbox .tv");
+  if(tv) tv.textContent=active.members.reduce((a,i)=>a+pts(active.stats[i]||EMPTY()),0)+"点";
+}
+/* 人数に合わせて1画面に収まるよう行の高さを自動調整 */
+function fitRows(){
+  const isGame=(view==="game" && active);
+  document.body.classList.toggle("scrolly", !isGame);
+  if(!isGame) return;
+  const pr=document.getElementById("prows"); if(!pr) return;
+  window.scrollTo(0,0);
+  const top=pr.getBoundingClientRect().top + window.scrollY;
+  const avail=window.innerHeight - top - 18;
+  const nrows=Math.max(1, active.members.length);
+  const h=Math.max(34, Math.min(62, Math.floor(avail/nrows)-4));
+  document.documentElement.style.setProperty("--rowH", h+"px");
+}
+window.addEventListener("resize", fitRows);
+
+function setPer(i){ active.per=i; save(K_ACTIVE,active); render(); }
+function setQ(i,side,val){ active.quarters[i][side]=val; save(K_ACTIVE,active); }
+
+const ACT={
+  sok:(s,per)=>{ const q=perGet(s,per); q.sh++; q.gl++; s.sh++; s.gl++; },
+  sng:(s,per)=>{ const q=perGet(s,per); q.sh++; s.sh++; },
+  fok:(s,per)=>{ const q=perGet(s,per); q.fta++; q.ftm++; s.fta++; s.ftm++; },
+  fng:(s,per)=>{ const q=perGet(s,per); q.fta++; s.fta++; },
+  re:s=>s.re++, bl:s=>s.bl++, st:s=>{s.st++;s.cu=s.st;}, as:s=>s.as++, to:s=>s.to++, fo:s=>s.f++,
+  zok:(s,per,z)=>{ const q=perGet(s,per); q.sh++; q.gl++; s.sh++; s.gl++; s.z[z].ok++; },
+  zng:(s,per,z)=>{ const q=perGet(s,per); q.sh++; s.sh++; s.z[z].ng++; }
+};
+const UNDO={
+  sok:(s,per)=>{ const q=perGet(s,per); q.sh--; q.gl--; s.sh--; s.gl--; },
+  sng:(s,per)=>{ const q=perGet(s,per); q.sh--; s.sh--; },
+  fok:(s,per)=>{ const q=perGet(s,per); q.fta--; q.ftm--; s.fta--; s.ftm--; },
+  fng:(s,per)=>{ const q=perGet(s,per); q.fta--; s.fta--; },
+  re:s=>s.re--, bl:s=>s.bl--, st:s=>{s.st--;s.cu=s.st;}, as:s=>s.as--, to:s=>s.to--, fo:s=>s.f--,
+  zok:(s,per,z)=>{ const q=perGet(s,per); q.sh--; q.gl--; s.sh--; s.gl--; s.z[z].ok--; },
+  zng:(s,per,z)=>{ const q=perGet(s,per); q.sh--; s.sh--; s.z[z].ng--; }
+};
+function rec(n,act){
+  const s=active.stats[n]||(active.stats[n]=EMPTY());
+  ACT[act](s, active.per);
+  active.log.push({n,act,per:active.per});
+  save(K_ACTIVE,active); refreshRow(n);
+}
+function undo(){
+  const last=active.log.pop();
+  if(!last){ toast("取り消せる記録がありません"); return; }
+  UNDO[last.act](active.stats[last.n], last.per, last.z);
+  save(K_ACTIVE,active);
+  if(view==="court"){ render(); }
+  else refreshRow(last.n);
+  if(last.z) toast(`取り消し: #${last.n} ${ZNAME[last.z]} ${last.act==="zok"?"成功○":"失敗×"}`);
+}
+function cancelGame(){
+  if(!confirm("この試合の記録を保存せずに破棄します。よろしいですか?")) return;
+  active=null; localStorage.removeItem(K_ACTIVE); render();
+}
+function endGame(){
+  if(!confirm("試合を終了して履歴に保存しますか?")) return;
+  const g={...active}; delete g.log; delete g.per;
+  games.unshift(g); save(K_GAMES,games);
+  active=null; localStorage.removeItem(K_ACTIVE);
+  histSel=g.id; view="history"; render();
+  cloudSave(true);
+}
+
+/* ================= 再編集 ================= */
+function startEdit(id){
+  if(active && !active.editing){ toast("記録中の試合があるため再編集できません(先に試合を終了・破棄してください)"); return; }
+  if(active && active.editing){ toast("別の試合を編集中です。先に保存または中止してください"); return; }
+  const idx=games.findIndex(g=>g.id===id);
+  if(idx<0) return;
+  active=JSON.parse(JSON.stringify(games[idx]));
+  active.editing=true; active.origIndex=idx; active.per=1; active.log=[];
+  selPlayer=null;
+  save(K_ACTIVE,active);
+  view="game"; histSel=null; render();
+  toast("再編集モード: ボタン追加・選手名タップの修正・コート入力が使えます");
+}
+function finishEdit(){
+  const idx=active.origIndex;
+  const g={...active}; delete g.log; delete g.per; delete g.editing; delete g.origIndex;
+  if(idx>=0 && idx<games.length && games[idx].id===g.id) games[idx]=g;
+  else { const i2=games.findIndex(x=>x.id===g.id); if(i2>=0) games[i2]=g; else games.unshift(g); }
+  save(K_GAMES,games);
+  active=null; localStorage.removeItem(K_ACTIVE);
+  histSel=g.id; view="history"; render();
+  toast("修正を保存しました");
+  cloudSave(true);
+}
+function cancelEdit(){
+  if(!confirm("編集した内容を破棄して元に戻します。よろしいですか?")) return;
+  const id=active.id;
+  active=null; localStorage.removeItem(K_ACTIVE);
+  histSel=id; view="history"; render();
+}
+
+/* ================= コート(ショットチャート) ================= */
+function band(r1,r2,cx,cy){
+  if(r1===0) return `M ${cx-r2},${cy} A ${r2},${r2} 0 0 0 ${cx+r2},${cy} Z`;
+  return `M ${cx-r2},${cy} A ${r2},${r2} 0 0 0 ${cx+r2},${cy} L ${cx+r1},${cy} A ${r1},${r1} 0 0 1 ${cx-r1},${cy} Z`;
+}
+let svgSeq=0;
+function courtSVG(g, interactive){
+  const cx=210, cy=30;
+  const t={}; ZONES.forEach(k=>t[k]=teamZone(g,k));
+  const click=k=>interactive?` onclick="zoneTap('${k}')"`:"";
+  const cls=interactive?"zone":"";
+  const idattr=k=>interactive?` id="zc-${k}"`:"";
+  const clip="courtclip"+(svgSeq++);
+  return `<svg viewBox="0 0 420 400" style="width:100%;display:block;">
+    <rect x="10" y="10" width="400" height="380" rx="6" fill="#f7e8cf" stroke="#b89b6a" stroke-width="3"/>
+    <clipPath id="${clip}"><rect x="10" y="10" width="400" height="380" rx="6"/></clipPath>
+    <g clip-path="url(#${clip})">
+      <path class="${cls}" d="${band(0,999,cx,cy)}" fill="#c3cede"${click("long")}/>
+      <path class="${cls}" d="${band(0,185,cx,cy)}" fill="#cfe3d2" stroke="#fff" stroke-width="2"${click("jump")}/>
+      <path class="${cls}" d="${band(0,115,cx,cy)}" fill="#f3ddba" stroke="#fff" stroke-width="2"${click("lay")}/>
+      <path class="${cls}" d="${band(0,55,cx,cy)}" fill="#eec3b1" stroke="#fff" stroke-width="2"${click("goal")}/>
+    </g>
+    <line x1="160" y1="10" x2="260" y2="10" stroke="#b89b6a" stroke-width="4"/>
+    <circle cx="${cx}" cy="${cy+8}" r="9" fill="none" stroke="#c0392b" stroke-width="3"/>
+    <text class="zlabel" x="${cx}" y="${cy+40}" text-anchor="middle" font-size="13">ゴール下</text>
+    <text class="zcount" x="${cx}" y="${cy+56}" text-anchor="middle" font-size="12"${idattr("goal")}>${zText(t.goal)}</text>
+    <text class="zlabel" x="${cx}" y="${cy+94}" text-anchor="middle" font-size="13">レイアップ</text>
+    <text class="zcount" x="${cx}" y="${cy+110}" text-anchor="middle" font-size="12"${idattr("lay")}>${zText(t.lay)}</text>
+    <text class="zlabel" x="${cx}" y="${cy+156}" text-anchor="middle" font-size="13">ジャンプシュート</text>
+    <text class="zcount" x="${cx}" y="${cy+172}" text-anchor="middle" font-size="12"${idattr("jump")}>${zText(t.jump)}</text>
+    <text class="zlabel" x="${cx}" y="${cy+280}" text-anchor="middle" font-size="13">ロングシュート</text>
+    <text class="zcount" x="${cx}" y="${cy+296}" text-anchor="middle" font-size="12"${idattr("long")}>${zText(t.long)}</text>
+  </svg>`;
+}
+function zoneTableRows(g, edit){
+  return ZONES.map(k=>{
+    const o=teamZone(g,k), att=o.ok+o.ng;
+    const editCell=edit?`<td><button class="stepbtn minus" onclick="zFix('${k}','ok',-1)">−</button><button class="stepbtn" onclick="zFix('${k}','ok',1)">＋</button></td>
+      <td><button class="stepbtn minus" onclick="zFix('${k}','ng',-1)">−</button><button class="stepbtn" onclick="zFix('${k}','ng',1)">＋</button></td>`:"";
+    return `<tr><td class="nm">${ZNAME[k]}</td><td>${att}</td><td class="okc">${o.ok}</td><td class="ngc">${o.ng}</td><td>${pct(o.ok,att)}</td>${editCell}</tr>`;
+  }).join("");
+}
+function courtHTML(){
+  if(!active){
+    return `<div class="empty">コート入力は試合の記録中(または再編集中)に使えます。<br>「試合」タブから試合を開始してください。<br><br>過去の試合のエリア別集計は「履歴」の各試合で見られます。</div>`;
+  }
+  if(!selPlayer || !active.members.includes(selPlayer)) selPlayer=active.members[0];
+  const p=selPlayer, name=nameForGame(active,p);
+  const editHead=courtEdit?`<th>成功 ±</th><th>失敗 ±</th>`:"";
+  return `
+  ${active.editing?`<div class="editband">✏ 保存済みの試合を編集中</div>`:""}
+  <div class="gamehead">
+    <div class="title">シュート位置の記録 <span class="muted">vs ${esc(active.opponent)}</span></div>
+    <div class="ptog">${[1,2,3,4].map(i=>`<button class="${active.per===i?'on':''}" onclick="setPer(${i})">${i}P</button>`).join("")}</div>
+    <div class="spacer"></div>
+    <span class="muted">入力は選手のS○/S×にも自動反映</span>
+  </div>
+  <div class="chips">${active.members.map(n=>`<button class="chip ${n===selPlayer?'on':''}" onclick="selPlayer='${n}';render()">${n} ${esc(nameForGame(active,n))}</button>`).join("")}</div>
+  <div class="modetog">
+    <button class="m mok ${courtMode==='ok'?'on':''}" onclick="courtMode='ok';render()">成功 ○</button>
+    <button class="m mng ${courtMode==='ng'?'on':''}" onclick="courtMode='ng';render()">失敗 ×</button>
+    <div class="spacer"></div>
+    <button class="btn dark small" onclick="undo()">↩ 戻す${active.log.length?` (${active.log.length})`:""}</button>
+  </div>
+  <div class="legend">いま選択中: <b>#${p} ${esc(name)}</b> の <b style="color:${courtMode==='ok'?'var(--ok)':'var(--ng)'};">${courtMode==='ok'?'成功':'失敗'}</b>(${active.per}P) — コートのエリアをタップすると記録されます</div>
+  <div class="courtwrap">
+    <div class="courtbox card" style="padding:8px;">${courtSVG(active,true)}</div>
+    <div style="flex:1; min-width:300px;">
+      <div class="card">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h2 class="sec" style="margin:0; flex:1;">エリア別集計(チーム)</h2>
+          <button class="btn ${courtEdit?'orange':'ghost'} small" onclick="courtEdit=!courtEdit;render()">${courtEdit?"修正を終了":"✎ 修正"}</button>
+        </div>
+        <div class="tablewrap" style="margin-top:10px;"><table class="stats" id="ztable">
+          <tr><th>エリア</th><th>シュート数</th><th>成功</th><th>失敗</th><th>成功率</th>${editHead}</tr>
+          ${zoneTableRows(active,courtEdit)}
+        </table></div>
+        <div class="muted" style="margin-top:8px;">${courtEdit?`修正は選択中の選手(#${p} ${esc(name)})の${active.per}Pの記録として反映されます`:"「✎ 修正」で入力済みの数を後から調整できます。選手ごとのエリア別集計は履歴詳細で見られます。"}</div>
+      </div>
+    </div>
+  </div>`;
+}
+function zoneTap(k){
+  const s=active.stats[selPlayer]||(active.stats[selPlayer]=EMPTY());
+  const act=courtMode==="ok"?"zok":"zng";
+  ACT[act](s, active.per, k);
+  active.log.push({n:selPlayer, act, per:active.per, z:k});
+  save(K_ACTIVE,active);
+  render();
+  toast(`#${selPlayer} ${nameForGame(active,selPlayer)} — ${ZNAME[k]} ${courtMode==="ok"?"成功○":"失敗×"}(${active.per}P)`);
+}
+function zFix(k,which,d){
+  const s=active.stats[selPlayer]||(active.stats[selPlayer]=EMPTY());
+  const z=s.z[k];
+  if(d<0){
+    if(z[which]<=0){ toast(`#${selPlayer}の${ZNAME[k]}${which==="ok"?"成功":"失敗"}は0のため減らせません(選手を切り替えてください)`); return; }
+    z[which]--;
+    /* ピリオド内訳: 現在Pから引けなければ他のPから引く */
+    let per=active.per;
+    const okFlag=(which==="ok");
+    const canDec=q=>q && q.sh>0 && (!okFlag || q.gl>0);
+    if(!canDec(s.p[per])){ per=[1,2,3,4,0].find(i=>canDec(s.p[i])); }
+    if(per!==undefined){ const q=s.p[per]; q.sh--; if(okFlag) q.gl--; }
+    recalcTotals(s);
+  }else{
+    z[which]++;
+    const q=perGet(s,active.per); q.sh++; if(which==="ok") q.gl++;
+    recalcTotals(s);
+  }
+  save(K_ACTIVE,active); render();
+  toast(`#${selPlayer} — ${ZNAME[k]} ${which==="ok"?"成功":"失敗"}を${d>0?"+1":"−1"}(S記録にも反映)`);
+}
+
+/* ================= fix modal ================= */
+let fixTarget=null;
+const PSTAT_LABELS={sh:"シュート数",gl:"ゴール数(成功)",fta:"フリースロー数",ftm:"FT成功"};
+const OSTAT_LABELS={re:"リバウンド",bl:"ブロック",st:"スティール",as:"アシスト",to:"ターンオーバー",f:"ファウル"};
+function openFix(n){
+  fixTarget=n;
+  const s=active.stats[n]||(active.stats[n]=EMPTY());
+  const pers = active.editing ? [1,2,3,4].concat(s.p[0]&&(s.p[0].sh||s.p[0].fta)?[0]:[]) : [active.per];
+  let html="";
+  pers.forEach(per=>{
+    const q=perGet(s,per);
+    html+=`<h4>${per===0?"ピリオド不明(旧記録)":per+"P"}${!active.editing?"(現在選択中)":""}</h4>`;
+    html+=Object.keys(PSTAT_LABELS).map(k=>`
+      <div class="step"><span class="sl">${PSTAT_LABELS[k]}</span>
+        <span class="ctr"><button class="minus" onclick="stepFixP(${per},'${k}',-1)">−</button><span class="val" id="fx-p${per}-${k}">${q[k]}</span><button onclick="stepFixP(${per},'${k}',1)">＋</button></span>
+      </div>`).join("");
+  });
+  html+=`<h4>その他</h4>`;
+  html+=Object.keys(OSTAT_LABELS).map(k=>`
+    <div class="step"><span class="sl">${OSTAT_LABELS[k]}</span>
+      <span class="ctr"><button class="minus" onclick="stepFixO('${k}',-1)">−</button><span class="val" id="fx-o-${k}">${s[k]}</span><button onclick="stepFixO('${k}',1)">＋</button></span>
+    </div>`).join("");
+  showModal(`<h3>#${n} ${esc(nameForGame(active,n))} の記録を修正</h3>${html}
+    <div class="mfoot"><button class="btn" onclick="closeModal();render()">閉じる</button></div>`);
+}
+function stepFixP(per,k,d){
+  const s=active.stats[fixTarget];
+  const q=perGet(s,per);
+  q[k]=Math.max(0,q[k]+d);
+  if(k==="gl") q.sh=Math.max(q.sh,q.gl);
+  if(k==="sh") q.gl=Math.min(q.gl,q.sh);
+  if(k==="ftm") q.fta=Math.max(q.fta,q.ftm);
+  if(k==="fta") q.ftm=Math.min(q.ftm,q.fta);
+  recalcTotals(s);
+  Object.keys(PSTAT_LABELS).forEach(kk=>{ const el=document.getElementById(`fx-p${per}-${kk}`); if(el) el.textContent=q[kk]; });
+  save(K_ACTIVE,active);
+}
+function stepFixO(k,d){
+  const s=active.stats[fixTarget];
+  s[k]=Math.max(0,s[k]+d);
+  if(k==="st") s.cu=s.st;
+  const el=document.getElementById("fx-o-"+k); if(el) el.textContent=s[k];
+  save(K_ACTIVE,active);
+}
+function helpModal(){
+  showModal(`<h3>ボタンの説明</h3>
+    <div style="font-size:14px; line-height:2;">
+      <b>S○</b>=シュート成功(2点) / <b>S×</b>=シュート失敗<br>
+      <b>FT○</b>=フリースロー成功(1点) / <b>FT×</b>=FT失敗<br>
+      <b>R</b>=リバウンド / <b>B</b>=ブロック / <b>ST</b>=スティール<br>
+      <b>A</b>=アシスト / <b>TO</b>=ターンオーバー / <b>F</b>=ファウル<br>
+      上の1P〜4Pで現在のピリオドを切り替えます。<br>
+      ボタンの数字は現在の回数、ファウルは4つ目から赤表示。<br>
+      選手名をタップすると数値を直接修正できます。<br>
+      「↩ 戻す」で直前のタップを取り消せます。<br>
+      「コート」タブではシュートを打った場所ごとに記録できます。
+    </div>
+    <div class="mfoot"><button class="btn" onclick="closeModal()">閉じる</button></div>`);
+}
+function showModal(html){
+  const r=document.getElementById("modal-root");
+  r.innerHTML=`<div class="modal">${html}</div>`;
+  r.classList.add("show");
+}
+function closeModal(){ const r=document.getElementById("modal-root"); r.classList.remove("show"); r.innerHTML=""; }
+
+/* ================= history ================= */
+function gameScore(g){
+  for(let i=3;i>=0;i--){
+    const q=g.quarters[i];
+    if(q && (q.us!==""||q.th!=="")) return {us:Number(q.us)||0, th:Number(q.th)||0};
+  }
+  return {us:g.members.reduce((a,n)=>a+pts(g.stats[n]||EMPTY()),0), th:null};
+}
+function historyHTML(){
+  if(games.length===0) return `<div class="empty">保存された試合はまだありません。<br>「試合」タブから記録を始めてください。</div>`;
+  const items=games.map(g=>{
+    const sc=gameScore(g);
+    const cls=sc.th==null?"":(sc.us>sc.th?"win":(sc.us<sc.th?"lose":""));
+    const scTxt=sc.th==null? `${sc.us}点` : `${sc.us} - ${sc.th}`;
+    return `<div class="gitem" onclick="histSel='${g.id}';render()">
+      <div class="gd">${fmtDate(g.date)}</div>
+      <div class="gvs">vs ${esc(g.opponent)}${g.type?` <span class="gtype">${esc(g.type)}</span>`:""}</div>
+      <div class="gsc ${cls}">${scTxt}</div>
+      <div style="color:var(--sub);">›</div>
+    </div>`;
+  }).join("");
+  return `<div class="card"><h2 class="sec">試合履歴 (${games.length})</h2>${items}</div>`;
+}
+function periodTable(g){
+  if(!hasPeriod(g)){
+    return `<div class="muted">この試合はピリオド別の記録がありません(旧バージョンで記録された試合、またはピリオド切替なしで記録)。</div>`;
+  }
+  const Q=i=>{ const q=g.quarters[i-1]; return (q&&q.us!=="")?Number(q.us):null; };
+  const QT=i=>{ const q=g.quarters[i-1]; return (q&&q.th!=="")?Number(q.th):null; };
+  const rows=[1,2,3,4].map(i=>{
+    let gl=0,sh=0,ftm=0,fta=0;
+    g.members.forEach(n=>{ const q=g.stats[n]&&g.stats[n].p&&g.stats[n].p[i]; if(q){gl+=q.gl;sh+=q.sh;ftm+=q.ftm;fta+=q.fta;} });
+    const us1=Q(i), us0=i===1?0:Q(i-1), th1=QT(i), th0=i===1?0:QT(i-1);
+    let scoreCell="-";
+    if(us1!==null&&us0!==null&&th1!==null&&th0!==null) scoreCell=`${us1-us0} - ${th1-th0}`;
+    else if(us1!==null&&us0!==null) scoreCell=`${us1-us0}`;
+    else if(sh>0||fta>0) scoreCell=`${gl*2+ftm}点(記録)`;
+    return `<tr><td><b>${i}P</b></td><td>${scoreCell}</td><td>${gl}/${sh}</td><td>${pct(gl,sh)}</td><td>${ftm}/${fta}</td></tr>`;
+  }).join("");
+  let T={gl:0,sh:0,ftm:0,fta:0};
+  g.members.forEach(n=>{ const s=g.stats[n]||EMPTY(); T.gl+=s.gl; T.sh+=s.sh; T.ftm+=s.ftm; T.fta+=s.fta; });
+  const sc=gameScore(g);
+  return `<div class="tablewrap"><table class="stats">
+    <tr><th></th><th>得点(自-相)</th><th>シュート GL/SH</th><th>成功率</th><th>FT</th></tr>
+    ${rows}
+    <tr class="total"><td>合計</td><td>${sc.th==null?sc.us+"点":sc.us+" - "+sc.th}</td><td>${T.gl}/${T.sh}</td><td>${pct(T.gl,T.sh)}</td><td>${T.ftm}/${T.fta}</td></tr>
+  </table></div>`;
+}
+function zoneSection(g){
+  if(!hasZone(g)){
+    return `<div class="muted">この試合はコート(エリア別)の記録がありません。</div>`;
+  }
+  const zHead2=ZONES.map(()=>`<th>数</th><th>成功</th><th>失敗</th><th>率</th>`).join("");
+  const zprow=g.members.map(n=>{
+    const s=g.stats[n]||EMPTY();
+    const cells=ZONES.map(k=>{const o=s.z[k], att=o.ok+o.ng;
+      return `<td>${att}</td><td class="okc">${o.ok}</td><td class="ngc">${o.ng}</td><td>${pct(o.ok,att)}</td>`;}).join("");
+    return `<tr><td class="nm">${n} ${esc(nameForGame(g,n))}</td>${cells}</tr>`;
+  }).join("");
+  const ztotal=ZONES.map(k=>{const o=teamZone(g,k), att=o.ok+o.ng;
+    return `<td>${att}</td><td class="okc">${o.ok}</td><td class="ngc">${o.ng}</td><td>${pct(o.ok,att)}</td>`;}).join("");
+  return `
+  <div class="courtwrap">
+    <div class="courtbox" style="max-width:420px;">${courtSVG(g,false)}</div>
+    <div style="flex:1; min-width:300px;">
+      <div class="tablewrap"><table class="stats">
+        <tr><th>エリア</th><th>シュート数</th><th>成功</th><th>失敗</th><th>成功率</th></tr>
+        ${zoneTableRows(g,false)}
+      </table></div>
+    </div>
+  </div>
+  <h2 class="sec" style="margin-top:16px;">選手別エリア詳細</h2>
+  <div class="tablewrap"><table class="stats" style="font-size:12px;">
+    <tr><th rowspan="2">選手</th><th class="zh" colspan="4">ゴール下</th><th class="zh" colspan="4">レイアップ</th><th class="zh" colspan="4">ジャンプシュート</th><th class="zh" colspan="4">ロングシュート</th></tr>
+    <tr>${zHead2}</tr>
+    ${zprow}
+    <tr class="total"><td class="nm">チーム合計</td>${ztotal}</tr>
+  </table></div>
+  <div class="muted" style="margin-top:6px;">各エリアの表示は「シュート数 / 成功 / 失敗 / 成功率」の順です。コート入力を使わなかったシュートはエリアなしとして選手別スタッツにのみ含まれます。</div>`;
+}
+function gameDetailHTML(g){
+  if(!g) return historyHTML();
+  const sc=gameScore(g);
+  const qline=g.quarters.map((q,i)=>`${i+1}P ${q.us||0}-${q.th||0}`).join("　");
+  let T=EMPTY();
+  const rows=g.members.map(n=>{
+    const s=g.stats[n]||EMPTY();
+    ["gl","sh","ftm","fta","re","bl","st","as","to","f"].forEach(k=>T[k]+=s[k]);
+    return `<tr><td class="nm">${n} ${esc(nameForGame(g,n))}</td>
+      <td>${s.gl}/${s.sh}</td><td>${pct(s.gl,s.sh)}</td>
+      <td>${s.ftm}/${s.fta}</td><td>${pct(s.ftm,s.fta)}</td>
+      <td>${s.re}</td><td>${s.bl}</td><td>${s.st}</td><td>${s.as}</td><td>${s.to}</td><td>${s.f}</td><td><b>${pts(s)}</b></td></tr>`;
+  }).join("");
+  const totalRow=`<tr class="total"><td class="nm">チーム合計</td>
+    <td>${T.gl}/${T.sh}</td><td>${pct(T.gl,T.sh)}</td>
+    <td>${T.ftm}/${T.fta}</td><td>${pct(T.ftm,T.fta)}</td>
+    <td>${T.re}</td><td>${T.bl}</td><td>${T.st}</td><td>${T.as}</td><td>${T.to}</td><td>${T.f}</td><td><b>${pts(T)}</b></td></tr>`;
+  return `<div class="card">
+    <div class="gamehead">
+      <span class="noprint"><button class="btn ghost small" onclick="histSel=null;render()">‹ 一覧へ</button></span>
+      <div class="title">${fmtDate(g.date)}${g.type?` <span class="gtype">${esc(g.type)}</span>`:""}　vs ${esc(g.opponent)}　<span style="color:var(--navy);font-weight:800;font-size:28px;vertical-align:-2px;">${sc.th==null?sc.us+"点":sc.us+" - "+sc.th}</span></div>
+      <div class="spacer"></div>
+      <span class="noprint">
+        <button class="btn orange small" onclick="startEdit('${g.id}')">✏ 再編集</button>
+        <button class="btn small" onclick="window.print()">🖨 PDF出力</button>
+        <button class="btn small" onclick="exportCSV('${g.id}')">CSV</button>
+        <button class="btn red small" onclick="delGame('${g.id}')">削除</button>
+      </span>
+    </div>
+    <div class="muted" style="margin-bottom:10px;">${qline}</div>
+    <h2 class="sec">ピリオド別</h2>
+    ${periodTable(g)}
+    <h2 class="sec" style="margin-top:16px;">エリア別シュート</h2>
+    ${zoneSection(g)}
+    <h2 class="sec" style="margin-top:16px;">選手別</h2>
+    <div class="tablewrap"><table class="stats">
+      <tr><th>選手</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>Re</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>得点</th></tr>
+      ${rows}${totalRow}
+    </table></div>
+    <div class="muted noprint" style="margin-top:8px;">「PDF出力」→ iPadでは印刷プレビューを共有ボタンから「PDFを保存」、パソコンでは送信先「PDFに保存」を選んでください。</div>
+  </div>`;
+}
+function delGame(id){
+  if(!confirm("この試合を削除しますか? 元に戻せません。")) return;
+  games=games.filter(g=>g.id!==id); save(K_GAMES,games); histSel=null; render();
+  cloudSave(true);
+}
+function exportCSV(id){
+  const g=games.find(x=>x.id===id); if(!g) return;
+  let csv="﻿背番号,名前,シュート数,ゴール数,成功率,FT数,FT成功,FT%,リバウンド,ブロック,スティール,アシスト,ターンオーバー,ファウル,得点,ゴール下成功,ゴール下失敗,レイアップ成功,レイアップ失敗,ジャンプ成功,ジャンプ失敗,ロング成功,ロング失敗\n";
+  g.members.forEach(n=>{
+    const s=g.stats[n]||EMPTY();
+    csv+=[n,nameForGame(g,n),s.sh,s.gl,pct(s.gl,s.sh),s.fta,s.ftm,pct(s.ftm,s.fta),
+      s.re,s.bl,s.st,s.as,s.to,s.f,pts(s),
+      s.z.goal.ok,s.z.goal.ng,s.z.lay.ok,s.z.lay.ng,s.z.jump.ok,s.z.jump.ng,s.z.long.ok,s.z.long.ng].join(",")+"\n";
+  });
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`stats_${g.date}_${g.type?g.type+"_":""}${g.opponent}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ================= totals ================= */
+function totSelected(){ return totSel===null? new Set(games.map(g=>g.id)) : totSel; }
+function toggleTot(id,checked){
+  if(totSel===null) totSel=new Set(games.map(g=>g.id));
+  if(checked) totSel.add(id); else totSel.delete(id);
+  render();
+}
+function totAll(on){ totSel = on? null : new Set(); render(); }
+function totByType(type){
+  totSel=new Set(games.filter(g=>g.type===type).map(g=>g.id));
+  render();
+}
+function totalHTML(){
+  if(games.length===0) return `<div class="empty">通算成績は試合を保存すると表示されます。</div>`;
+  const sel=totSelected();
+  const target=games.filter(g=>sel.has(g.id));
+  const typeBtns=GAME_TYPES.filter(t=>games.some(g=>g.type===t))
+    .map(t=>`<button class="btn ghost small" onclick="totByType('${t}')">${t}のみ</button>`).join("");
+  const gsel=games.map(g=>{
+    const sc=gameScore(g);
+    return `<label class="checkrow">
+      <input type="checkbox" ${sel.has(g.id)?"checked":""} onchange="toggleTot('${g.id}',this.checked)">
+      <span style="color:var(--sub); font-size:13px; width:86px;">${fmtDate(g.date)}</span>
+      ${g.type?`<span class="gtype">${esc(g.type)}</span>`:""}
+      <span style="flex:1;">vs ${esc(g.opponent)}</span>
+      <span style="color:var(--navy); font-weight:800;">${sc.th==null?sc.us+"点":sc.us+" - "+sc.th}</span>
+    </label>`;
+  }).join("");
+  const agg={};
+  target.forEach(g=>{
+    g.members.forEach(num=>{
+      if(!agg[num]) agg[num]={n:0, s:EMPTY(), name:nameForGame(g,num)};
+      agg[num].n++;
+      const s=g.stats[num]||EMPTY();
+      ["gl","sh","ftm","fta","re","bl","st","as","to","f"].forEach(k=>agg[num].s[k]+=s[k]);
+    });
+  });
+  const list=Object.entries(agg).sort((a,b)=>Number(a[0])-Number(b[0]));
+  const rows=list.map(([num,o])=>{
+    const s=o.s, p=pts(s);
+    return `<tr><td class="nm">${num} ${esc(roster[num]||o.name)}</td><td>${o.n}</td>
+      <td>${s.gl}/${s.sh}</td><td>${pct(s.gl,s.sh)}</td>
+      <td>${s.ftm}/${s.fta}</td><td>${pct(s.ftm,s.fta)}</td>
+      <td>${s.re}</td><td>${s.bl}</td><td>${s.st}</td><td>${s.as}</td><td>${s.to}</td><td>${s.f}</td>
+      <td><b>${p}</b></td><td>${o.n? (p/o.n).toFixed(1):"-"}</td></tr>`;
+  }).join("");
+  const table = target.length===0
+    ? `<div class="empty">試合が選択されていません。下の一覧から選んでください。</div>`
+    : `<div class="tablewrap"><table class="stats">
+        <tr><th>選手</th><th>試合数</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>Re</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>総得点</th><th>平均</th></tr>
+        ${rows}
+      </table></div>`;
+  return `<div class="card"><h2 class="sec">通算成績 (${target.length}試合を集計中 / 全${games.length}試合)</h2>
+    ${table}</div>
+  <div class="card">
+    <h2 class="sec">集計する試合を選ぶ</h2>
+    <div class="rowflex" style="margin-bottom:8px;">
+      <button class="btn small" onclick="totAll(true)">全試合</button>
+      <button class="btn ghost small" onclick="totAll(false)">全て外す</button>
+      ${typeBtns}
+    </div>
+    ${gsel}
+  </div>`;
+}
+
+/* ================= roster ================= */
+function rosterHTML(){
+  let rows="";
+  for(let n=NUM_MIN;n<=NUM_MAX;n++){
+    const name=roster[n]||"";
+    rows+=`<div class="ritem">
+      <span class="pnum ${name.trim()?"":"off"}">${n}</span>
+      <input type="text" value="${esc(name)}" placeholder="未登録" onchange="setName(${n},this.value)">
+    </div>`;
+  }
+  return `<div class="card">
+    <h2 class="sec">メンバー登録 (${NUM_MIN}〜${NUM_MAX}番)</h2>
+    <div class="muted" style="margin-bottom:10px;">背番号の横に名前を入力してください。入力すると自動で保存されます。名前が入力された選手だけが試合に表示されます。</div>
+    ${rows}
+  </div>`;
+}
+function setName(n,val){
+  const name=val.trim();
+  if(name) roster[n]=name; else delete roster[n];
+  save(K_ROSTER,roster);
+  const inputs=document.querySelectorAll(".ritem");
+  const idx=n-NUM_MIN;
+  if(inputs[idx]){ inputs[idx].querySelector(".pnum").classList.toggle("off", !name); }
+}
+
+/* ================= Google Drive クラウド保存 ================= */
+function syncHTML(){
+  const on=!!syncCfg.url;
+  return `<div class="card">
+    <h2 class="sec">クラウド保存 (Google Drive) の設定</h2>
+    <div class="muted" style="margin-bottom:12px; line-height:1.8;">
+      Google Apps Scriptの「ウェブアプリURL」を登録すると、試合を保存するたびに自動でGoogle Drive内のスプレッドシート「バスケスタッツ記録」にデータが保存されます。設置手順は配布された手順書をご覧ください。
+    </div>
+    <label class="fld">ウェブアプリのURL (https://script.google.com/... で始まるもの)
+      <input type="text" id="sy-url" value="${esc(syncCfg.url)}" placeholder="未設定">
+    </label>
+    <label class="fld">合言葉(キー) — Apps Script側のKEYと同じ文字列
+      <input type="text" id="sy-key" value="${esc(syncCfg.key)}">
+    </label>
+    <div class="rowflex" style="margin-top:6px;">
+      <button class="btn small" onclick="saveSyncCfg()">設定を保存</button>
+      <button class="btn ghost small" onclick="testSync()">接続テスト</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="sec">同期の状態</h2>
+    <div class="muted" style="margin-bottom:12px;">
+      設定: <b style="color:${on?"var(--ok)":"var(--ng)"};">${on?"設定済み":"未設定"}</b>
+      　最終クラウド保存: <b>${esc(syncCfg.last||"まだありません")}</b>
+    </div>
+    <div class="rowflex">
+      <button class="btn orange" onclick="cloudSave(false)">今すぐクラウドへ保存</button>
+      <button class="btn" onclick="cloudLoad()">クラウドから読み込み</button>
+    </div>
+    <div class="muted" style="margin-top:12px; line-height:1.8;">
+      「試合終了」や再編集の保存のたびに自動でクラウドにも保存されます。新しいiPadに引き継ぐときは、同じURLと合言葉を設定して「クラウドから読み込み」を押してください。
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="sec">手動バックアップ (ファイル)</h2>
+    <div class="muted" style="margin-bottom:12px; line-height:1.8;">
+      メンバーと全試合履歴を1つのバックアップファイルとして書き出します。書き出したファイルをGoogle Driveなどに保存しておけば、「読み込み」でいつでも復元できます。クラウド設定をしていなくても使えます。
+    </div>
+    <div class="rowflex">
+      <button class="btn orange" onclick="exportBackup()">バックアップを書き出す</button>
+      <button class="btn" onclick="document.getElementById('bk-file').click()">バックアップを読み込む</button>
+      <input type="file" id="bk-file" accept=".json,application/json" style="display:none;" onchange="importBackup(this)">
+    </div>
+  </div>`;
+}
+function saveSyncCfg(){
+  syncCfg.url=document.getElementById("sy-url").value.trim();
+  syncCfg.key=document.getElementById("sy-key").value.trim();
+  save(K_SYNC,syncCfg);
+  toast("設定を保存しました");
+}
+async function testSync(){
+  saveSyncCfg();
+  if(!syncCfg.url){ toast("URLを入力してください"); return; }
+  toast("接続確認中...");
+  try{
+    const r=await fetch(syncCfg.url+"?action=ping&key="+encodeURIComponent(syncCfg.key));
+    const j=await r.json();
+    toast(j.ok? "✓ 接続成功です!" : "接続できましたが合言葉が一致しません");
+  }catch(e){ toast("接続失敗: URLをご確認ください"); }
+}
+async function cloudSave(silent){
+  if(!syncCfg.url){
+    if(!silent){ toast("先に「設定」タブでURLを登録してください"); }
+    return;
+  }
+  if(!silent) toast("クラウドへ保存中...");
+  try{
+    const r=await fetch(syncCfg.url,{method:"POST",body:JSON.stringify({key:syncCfg.key,payload:{roster,games,savedAt:new Date().toISOString()}})});
+    const j=await r.json();
+    if(j.ok){
+      syncCfg.last=new Date().toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
+      save(K_SYNC,syncCfg);
+      toast("☁ クラウドに保存しました");
+      if(view==="sync") render();
+    }else{
+      toast("クラウド保存失敗: "+(j.error==="key"?"合言葉が違います":"エラー"));
+    }
+  }catch(e){ toast("クラウド保存失敗: 通信エラー(記録は端末に残っています)"); }
+}
+async function cloudLoad(){
+  saveSyncCfg();
+  if(!syncCfg.url){ toast("URLを入力してください"); return; }
+  if(!confirm("クラウドのデータで、この端末のメンバー・試合履歴を置き換えます。よろしいですか?")) return;
+  toast("読み込み中...");
+  try{
+    const r=await fetch(syncCfg.url+"?key="+encodeURIComponent(syncCfg.key));
+    const j=await r.json();
+    if(j.ok && j.payload){
+      roster=j.payload.roster||{}; games=(j.payload.games||[]).map(migrateGame);
+      save(K_ROSTER,roster); save(K_GAMES,games);
+      toast("✓ クラウドから読み込みました");
+      render();
+    }else{
+      toast(j.ok? "クラウドにまだデータがありません" : (j.error==="key"?"合言葉が違います":"読み込み失敗"));
+    }
+  }catch(e){ toast("読み込み失敗: 通信エラー"); }
+}
+function exportBackup(){
+  const data={app:"basket-stats",version:3,savedAt:new Date().toISOString(),roster,games};
+  const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+  const a=document.createElement("a");
+  const d=new Date(), ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  a.href=URL.createObjectURL(blob);
+  a.download=`バスケスタッツ_バックアップ_${ds}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast("バックアップファイルを書き出しました");
+}
+function importBackup(input){
+  const f=input.files && input.files[0];
+  input.value="";
+  if(!f) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(data.app!=="basket-stats" || !data.roster || !Array.isArray(data.games)){
+        toast("バックアップファイルの形式が正しくありません"); return;
+      }
+      if(!confirm(`このバックアップ(${(data.savedAt||"").slice(0,10)} 保存 / ${data.games.length}試合)で、この端末のデータを置き換えます。よろしいですか?`)) return;
+      roster=data.roster; games=data.games.map(migrateGame);
+      save(K_ROSTER,roster); save(K_GAMES,games);
+      toast("✓ バックアップを読み込みました");
+      render();
+    }catch(e){ toast("読み込みに失敗しました"); }
+  };
+  reader.readAsText(f);
+}
+
+render();
+</script>
+</body>
+</html>
