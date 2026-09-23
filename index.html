@@ -306,7 +306,7 @@ if(active){ migrateGame(active); if(!active.per) active.per=1; if(!active.log) a
 let syncCfg=load(K_SYNC,{url:"",key:"basket2026",last:""});
 
 let view="game", histSel=null, totSel=null;
-let selPlayer=null, fixMode=false;
+let selPlayer=null, fixMode=false, zoneSel=null;
 
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -656,13 +656,22 @@ function band(r1,r2,cx,cy){
   return `M ${cx-r2},${cy} A ${r2},${r2} 0 0 0 ${cx+r2},${cy} L ${cx+r1},${cy} A ${r1},${r1} 0 0 1 ${cx-r1},${cy} Z`;
 }
 let svgSeq=0;
-function courtSVG(g, interactive){
+function zgetTeam(g){ return k=>teamZone(g,k); }
+function zgetPlayer(g,n){ return k=>((g.stats[n]&&g.stats[n].z&&g.stats[n].z[k])||{ok:0,ng:0}); }
+function courtSVG(g, interactive, zget){
+  zget = zget || zgetTeam(g);
   const cx=210, cy=30;
-  const t={}; ZONES.forEach(k=>t[k]=teamZone(g,k));
+  const t={}; ZONES.forEach(k=>t[k]=zget(k));
+  const totalAtt=ZONES.reduce((a,k)=>a+t[k].ok+t[k].ng,0);
+  const share=k=>{const att=t[k].ok+t[k].ng; return `${att}/${totalAtt}本 ${pct(att,totalAtt)}`;};
   const click=k=>interactive?` onclick="zoneTap('${k}')"`:"";
   const cls=interactive?"zone":"";
   const idattr=k=>interactive?` id="zc-${k}"`:"";
   const clip="courtclip"+(svgSeq++);
+  const label=(k,y)=>`
+    <text class="zlabel" x="${cx}" y="${y}" text-anchor="middle" font-size="13">${ZNAME[k]}</text>
+    <text class="zcount" x="${cx}" y="${y+15}" text-anchor="middle" font-size="12"${idattr(k)}>${zText(t[k])}</text>
+    <text class="zshare" x="${cx}" y="${y+29}" text-anchor="middle" font-size="10.5" fill="#8a6d3f" font-weight="700">${share(k)}</text>`;
   return `<svg viewBox="0 0 420 400" style="width:100%;display:block;">
     <rect x="10" y="10" width="400" height="380" rx="6" fill="#f7e8cf" stroke="#b89b6a" stroke-width="3"/>
     <clipPath id="${clip}"><rect x="10" y="10" width="400" height="380" rx="6"/></clipPath>
@@ -674,22 +683,21 @@ function courtSVG(g, interactive){
     </g>
     <line x1="160" y1="10" x2="260" y2="10" stroke="#b89b6a" stroke-width="4"/>
     <circle cx="${cx}" cy="${cy+8}" r="9" fill="none" stroke="#c0392b" stroke-width="3"/>
-    <text class="zlabel" x="${cx}" y="${cy+40}" text-anchor="middle" font-size="13">ゴール下</text>
-    <text class="zcount" x="${cx}" y="${cy+56}" text-anchor="middle" font-size="12"${idattr("goal")}>${zText(t.goal)}</text>
-    <text class="zlabel" x="${cx}" y="${cy+94}" text-anchor="middle" font-size="13">レイアップ</text>
-    <text class="zcount" x="${cx}" y="${cy+110}" text-anchor="middle" font-size="12"${idattr("lay")}>${zText(t.lay)}</text>
-    <text class="zlabel" x="${cx}" y="${cy+156}" text-anchor="middle" font-size="13">ジャンプシュート</text>
-    <text class="zcount" x="${cx}" y="${cy+172}" text-anchor="middle" font-size="12"${idattr("jump")}>${zText(t.jump)}</text>
-    <text class="zlabel" x="${cx}" y="${cy+280}" text-anchor="middle" font-size="13">ロングシュート</text>
-    <text class="zcount" x="${cx}" y="${cy+296}" text-anchor="middle" font-size="12"${idattr("long")}>${zText(t.long)}</text>
+    ${label("goal",cy+38)}
+    ${label("lay",cy+94)}
+    ${label("jump",cy+156)}
+    ${label("long",cy+276)}
   </svg>`;
 }
-function zoneTableRows(g, edit){
+function zoneTableRows(g, edit, zget){
+  zget = zget || zgetTeam(g);
+  const t={}; ZONES.forEach(k=>t[k]=zget(k));
+  const totalAtt=ZONES.reduce((a,k)=>a+t[k].ok+t[k].ng,0);
   return ZONES.map(k=>{
-    const o=teamZone(g,k), att=o.ok+o.ng;
+    const o=t[k], att=o.ok+o.ng;
     const editCell=edit?`<td><button class="stepbtn minus" onclick="zFix('${k}','ok',-1)">−</button><button class="stepbtn" onclick="zFix('${k}','ok',1)">＋</button></td>
       <td><button class="stepbtn minus" onclick="zFix('${k}','ng',-1)">−</button><button class="stepbtn" onclick="zFix('${k}','ng',1)">＋</button></td>`:"";
-    return `<tr><td class="nm">${ZNAME[k]}</td><td>${att}</td><td class="okc">${o.ok}</td><td class="ngc">${o.ng}</td><td>${pct(o.ok,att)}</td>${editCell}</tr>`;
+    return `<tr><td class="nm">${ZNAME[k]}</td><td>${att}</td><td>${att}/${totalAtt} (${pct(att,totalAtt)})</td><td class="okc">${o.ok}</td><td class="ngc">${o.ng}</td><td>${pct(o.ok,att)}</td>${editCell}</tr>`;
   }).join("");
 }
 function courtHTML(){
@@ -722,7 +730,7 @@ function courtHTML(){
       <div class="card">
         <h2 class="sec" style="margin-top:0;">エリア別集計(チーム)</h2>
         <div class="tablewrap"><table class="stats" id="ztable">
-          <tr><th>エリア</th><th>シュート数</th><th>成功</th><th>失敗</th><th>成功率</th></tr>
+          <tr><th>エリア</th><th>シュート数</th><th>割合</th><th>成功</th><th>失敗</th><th>成功率</th></tr>
           ${zoneTableRows(active,false)}
         </table></div>
         <div class="muted" style="margin-top:8px;">±での修正は選択中の選手の${active.per}Pの記録として反映されます。全選手のエリア別集計は履歴詳細で見られます。</div>
@@ -882,8 +890,13 @@ function periodTable(g){
 }
 function zoneSection(g){
   if(!hasZone(g)){
-    return `<div class="muted">この試合はコート(エリア別)の記録がありません。</div>`;
+    return `<h2 class="sec">エリア別シュート</h2><div class="muted">この試合はコート(エリア別)の記録がありません。</div>`;
   }
+  /* 個人ビューの選手選択(エリア記録のある選手を優先して初期選択) */
+  if(!zoneSel || !g.members.includes(zoneSel)){
+    zoneSel = g.members.find(n=>{const z=g.stats[n]&&g.stats[n].z; return z&&ZONES.some(k=>z[k].ok+z[k].ng>0);}) || g.members[0];
+  }
+  const chips=g.members.map(n=>`<button class="chip ${n===zoneSel?'on':''}" onclick="zoneSel='${n}';render()">${n} ${esc(nameForGame(g,n))}</button>`).join("");
   const zHead2=ZONES.map(()=>`<th>数</th><th>成功</th><th>失敗</th><th>率</th>`).join("");
   const zprow=g.members.map(n=>{
     const s=g.stats[n]||EMPTY();
@@ -894,13 +907,32 @@ function zoneSection(g){
   const ztotal=ZONES.map(k=>{const o=teamZone(g,k), att=o.ok+o.ng;
     return `<td>${att}</td><td class="okc">${o.ok}</td><td class="ngc">${o.ng}</td><td>${pct(o.ok,att)}</td>`;}).join("");
   return `
+  <h2 class="sec">エリア別シュート — チーム全体</h2>
   <div class="courtwrap">
     <div class="courtbox" style="max-width:420px;">${courtSVG(g,false)}</div>
     <div style="flex:1; min-width:300px;">
       <div class="tablewrap"><table class="stats">
-        <tr><th>エリア</th><th>シュート数</th><th>成功</th><th>失敗</th><th>成功率</th></tr>
+        <tr><th>エリア</th><th>シュート数</th><th>割合</th><th>成功</th><th>失敗</th><th>成功率</th></tr>
         ${zoneTableRows(g,false)}
       </table></div>
+      <div class="muted" style="margin-top:8px;">「割合」= そのエリアの本数/総シュート数(エリア記録のあるもの)。</div>
+    </div>
+  </div>
+  <div class="noprint">
+    <h2 class="sec" style="margin-top:18px;">エリア別シュート — 個人</h2>
+    <div class="chips" style="margin-bottom:8px;">${chips}</div>
+    <div class="courtwrap">
+      <div class="courtbox" style="max-width:420px;">
+        <div style="text-align:center; font-weight:800; color:var(--navy); margin-bottom:4px;">#${zoneSel} ${esc(nameForGame(g,zoneSel))}</div>
+        ${courtSVG(g,false,zgetPlayer(g,zoneSel))}
+      </div>
+      <div style="flex:1; min-width:300px;">
+        <div class="tablewrap"><table class="stats">
+          <tr><th>エリア</th><th>シュート数</th><th>割合</th><th>成功</th><th>失敗</th><th>成功率</th></tr>
+          ${zoneTableRows(g,false,zgetPlayer(g,zoneSel))}
+        </table></div>
+        <div class="muted" style="margin-top:8px;">「割合」= この選手のそのエリアの本数/この選手の総シュート数。上の名前で切り替えられます(PDF出力にはこの個人ビューは含まれません)。</div>
+      </div>
     </div>
   </div>
   <h2 class="sec" style="margin-top:16px;">選手別エリア詳細</h2>
@@ -947,14 +979,13 @@ function gameDetailHTML(g){
     <div class="muted" style="margin-bottom:10px;">${qline}</div>
     <h2 class="sec">ピリオド別</h2>
     ${periodTable(g)}
-    <h2 class="sec" style="margin-top:16px;">エリア別シュート</h2>
-    ${zoneSection(g)}
     <h2 class="sec" style="margin-top:16px;">選手別</h2>
     <div class="tablewrap"><table class="stats">
       <tr><th>選手</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>OR</th><th>DR</th><th>R計</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>得点</th></tr>
       ${rows}${totalRow}
     </table></div>
-    <div class="muted noprint" style="margin-top:8px;">「PDF出力」→ iPadでは印刷プレビューを共有ボタンから「PDFを保存」、パソコンでは送信先「PDFに保存」を選んでください。</div>
+    <div style="margin-top:16px;">${zoneSection(g)}</div>
+    <div class="muted noprint" style="margin-top:8px;">「PDF出力」→ iPadでは印刷プレビューを共有ボタンから「PDFを保存」、パソコンでは送信先「PDFに保存」を選んでください(個人ビューはPDFに含まれません)。</div>
   </div>`;
 }
 /* PDF出力: ファイル名(=保存時のPDF名)を指定してから印刷画面を開く */
@@ -1051,7 +1082,7 @@ function totalHTML(){
   const snap={}; list.forEach(([num,o])=>snap[num]=roster[num]||o.name);
   const G={members:gm, stats:Object.fromEntries(list.map(([num,o])=>[num,o.s])), nameSnap:snap};
   const zoneCard = target.length===0 ? "" :
-    `<div class="card"><h2 class="sec">エリア別シュート(選択中の${target.length}試合の合計)</h2>${zoneSection(G)}</div>`;
+    `<div class="card"><div class="muted" style="margin-bottom:6px;">以下は選択中の${target.length}試合の合計です</div>${zoneSection(G)}</div>`;
   return `<div class="card"><h2 class="sec">通算成績 (${target.length}試合を集計中 / 全${games.length}試合)</h2>
     ${table}</div>
   ${zoneCard}
