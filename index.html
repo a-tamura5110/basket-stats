@@ -939,7 +939,7 @@ function gameDetailHTML(g){
       <div class="spacer"></div>
       <span class="noprint">
         <button class="btn orange small" onclick="startEdit('${g.id}')">✏ 再編集</button>
-        <button class="btn small" onclick="window.print()">🖨 PDF出力</button>
+        <button class="btn small" onclick="printGame('${g.id}')">🖨 PDF出力</button>
         <button class="btn small" onclick="exportCSV('${g.id}')">CSV</button>
         <button class="btn red small" onclick="delGame('${g.id}')">削除</button>
       </span>
@@ -956,6 +956,20 @@ function gameDetailHTML(g){
     </table></div>
     <div class="muted noprint" style="margin-top:8px;">「PDF出力」→ iPadでは印刷プレビューを共有ボタンから「PDFを保存」、パソコンでは送信先「PDFに保存」を選んでください。</div>
   </div>`;
+}
+/* PDF出力: ファイル名(=保存時のPDF名)を指定してから印刷画面を開く */
+function printGame(id){
+  const g=games.find(x=>x.id===id); if(!g) return;
+  const def=`${fmtDate(g.date)} ${g.opponent}戦`;
+  const name=prompt("PDFのファイル名を入力してください", def);
+  if(name===null) return;
+  const old=document.title;
+  document.title=(name.trim()||def);
+  let restored=false;
+  const restore=()=>{ if(restored) return; restored=true; document.title=old; window.removeEventListener("afterprint",restore); };
+  window.addEventListener("afterprint",restore);
+  setTimeout(restore, 4000);
+  window.print();
 }
 function delGame(id){
   if(!confirm("この試合を削除しますか? 元に戻せません。")) return;
@@ -1013,6 +1027,7 @@ function totalHTML(){
       agg[num].n++;
       const s=g.stats[num]||EMPTY();
       ["gl","sh","ftm","fta","or","dr","rl","bl","st","as","to","f"].forEach(k=>agg[num].s[k]+=s[k]);
+      ZONES.forEach(k=>{ agg[num].s.z[k].ok+=s.z[k].ok; agg[num].s.z[k].ng+=s.z[k].ng; });
     });
   });
   const list=Object.entries(agg).sort((a,b)=>Number(a[0])-Number(b[0]));
@@ -1031,8 +1046,15 @@ function totalHTML(){
         <tr><th>選手</th><th>試合数</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>OR</th><th>DR</th><th>R計</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>総得点</th><th>平均</th></tr>
         ${rows}
       </table></div>`;
+  /* 通算のエリア別集計: 選択中の試合を合算した擬似ゲームを作って詳細画面の部品を再利用 */
+  const gm=list.map(([num])=>num);
+  const snap={}; list.forEach(([num,o])=>snap[num]=roster[num]||o.name);
+  const G={members:gm, stats:Object.fromEntries(list.map(([num,o])=>[num,o.s])), nameSnap:snap};
+  const zoneCard = target.length===0 ? "" :
+    `<div class="card"><h2 class="sec">エリア別シュート(選択中の${target.length}試合の合計)</h2>${zoneSection(G)}</div>`;
   return `<div class="card"><h2 class="sec">通算成績 (${target.length}試合を集計中 / 全${games.length}試合)</h2>
     ${table}</div>
+  ${zoneCard}
   <div class="card">
     <h2 class="sec">集計する試合を選ぶ</h2>
     <div class="rowflex" style="margin-bottom:8px;">
