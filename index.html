@@ -165,6 +165,15 @@ h2.sec{font-size:16px; color:var(--navy); margin:4px 0 10px;}
 .step .ctr button.minus{background:#9aa4b0;}
 .step .val{font-size:18px; font-weight:800; min-width:34px; text-align:center;}
 .mfoot{display:flex; gap:10px; margin-top:16px; justify-content:flex-end;}
+.zpick{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;}
+.zpick button{border:none; border-radius:12px; padding:20px 8px; font-size:16px; font-weight:800; color:#1e3a5f;}
+.zpick button:active{transform:scale(.95);}
+.zpick .zg{background:#eec3b1;} .zpick .zl{background:#f3ddba;} .zpick .zj{background:#cfe3d2;} .zpick .zlo{background:#c3cede;}
+.zpick .zn{background:#e9e4d6; grid-column:1 / -1;}
+.zpick small{display:block; font-weight:600; font-size:11px; color:#6b6350; margin-top:3px;}
+.mcancel{margin-top:12px; width:100%; border:1.5px solid var(--line); background:#fff; color:var(--sub); border-radius:10px; padding:12px; font-size:14px; font-weight:700;}
+body.fixmode .prow{border-color:var(--ng); background:#fdf3f2;}
+.fixband{background:#f7c8c2; color:#7a1d14; font-weight:800; text-align:center; border-radius:10px; padding:7px; margin-bottom:8px; font-size:13px;}
 .checkrow{display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid var(--line); font-size:15px; font-weight:600;}
 .checkrow input{width:22px; height:22px;}
 .checkrow .pnum{background:var(--navy); color:#fff; border-radius:8px; min-width:34px; text-align:center; padding:3px 4px;}
@@ -297,7 +306,7 @@ if(active){ migrateGame(active); if(!active.per) active.per=1; if(!active.log) a
 let syncCfg=load(K_SYNC,{url:"",key:"basket2026",last:""});
 
 let view="game", histSel=null, totSel=null;
-let selPlayer=null, courtMode="ok", courtEdit=false;
+let selPlayer=null, fixMode=false;
 
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -326,6 +335,7 @@ function setTabs(){
 }
 function render(){
   setTabs();
+  document.body.classList.toggle("fixmode", fixMode && view==="game" && !!active);
   const app=document.getElementById("app");
   document.getElementById("hd-sub").textContent = active? `${fmtDate(active.date)} vs ${active.opponent}${active.editing?"(編集中)":""}` : "";
   if(view==="game") app.innerHTML = active? gameHTML() : newGameHTML();
@@ -376,7 +386,7 @@ function startGame(){
   active={ id:uid(), date, type, opponent:opp, per:1,
     quarters:[{us:"",th:""},{us:"",th:""},{us:"",th:""},{us:"",th:""}],
     stats, log:[], members:nums, nameSnap:snap };
-  selPlayer=null;
+  selPlayer=null; fixMode=false;
   save(K_ACTIVE,active); render();
 }
 
@@ -389,8 +399,9 @@ function gameHTML(){
   const auto=active.members.reduce((a,n)=>a+pts(active.stats[n]||EMPTY()),0);
   const rows=active.members.map(n=>playerRowHTML(n)).join("");
   const editBand=active.editing?`<div class="editband">✏ 保存済みの試合を編集中 — 修正が終わったら「保存して終了」を押してください</div>`:"";
+  const fixBand=fixMode?`<div class="fixband">−修正モード中: ボタンをタップすると1つ減ります(シュートはエリア選択が出ます)。終わったら「✓ 修正おわり」</div>`:"";
   return `
-  ${editBand}
+  ${editBand}${fixBand}
   <div class="gamehead">
     <div class="title">vs ${esc(active.opponent)}${active.type?` <span class="gtype">${esc(active.type)}</span>`:""} <span class="muted">${fmtDate(active.date)}</span></div>
     <div class="ptog">${[1,2,3,4].map(i=>`<button class="${active.per===i?'on':''}" onclick="setPer(${i})">${i}P</button>`).join("")}</div>
@@ -398,6 +409,7 @@ function gameHTML(){
       <div class="totalbox"><div class="tl">自動<br>計算</div><div class="tv">${auto}点</div></div>
     </div>
     <div class="spacer"></div>
+    <button class="btn small ${fixMode?'red':'ghost'}" onclick="fixMode=!fixMode;render()">${fixMode?"✓ 修正おわり":"− 修正"}</button>
     <button class="btn dark small undo-btn" onclick="undo()">↩ 戻す${active.log.length?` (${active.log.length})`:""}</button>
     <button class="btn ghost small" onclick="helpModal()">?</button>
     ${active.editing
@@ -483,13 +495,108 @@ const UNDO={
 };
 function rec(n,act){
   const s=active.stats[n]||(active.stats[n]=EMPTY());
+  if(act==="sok"||act==="sng"){ openZonePick(n,act); return; }
+  if(fixMode){ decStat(n,act); return; }
   ACT[act](s, active.per);
   active.log.push({n,act,per:active.per});
   save(K_ACTIVE,active); refreshRow(n);
 }
+/* ---- シュートのエリア選択ポップアップ ---- */
+function zoneSum(s,w){ return ZONES.reduce((a,k)=>a+s.z[k][w],0); }
+function unzonedCount(s, okFlag){
+  return okFlag ? s.gl-zoneSum(s,"ok") : (s.sh-s.gl)-zoneSum(s,"ng");
+}
+function openZonePick(n,act){
+  const s=active.stats[n]||(active.stats[n]=EMPTY());
+  const ok=(act==="sok");
+  const cls={goal:"zg",lay:"zl",jump:"zj",long:"zlo"};
+  const cnt=k=>fixMode?`<small>現在 ${ok?s.z[k].ok:s.z[k].ng}本</small>`:"";
+  const zbtns=ZONES.map(k=>`<button class="${cls[k]}" onclick="applyZone('${n}','${act}','${k}')">${ZNAME[k]}${cnt(k)}</button>`).join("");
+  showModal(`<h3>#${n} ${esc(nameForGame(active,n))} — シュート${ok?"成功○":"失敗×"}${fixMode?" を1つ取り消し":""}</h3>
+    <div class="muted">${fixMode?"どのエリアから減らしますか?":`どこから打ちましたか?(${active.per}Pとして記録・コートタブにも反映)`}</div>
+    <div class="zpick">${zbtns}
+      <button class="zn" onclick="applyZone('${n}','${act}','none')">エリアなし(位置を記録しない)${fixMode?`<small>現在 ${Math.max(0,unzonedCount(s,ok))}本</small>`:""}</button>
+    </div>
+    <button class="mcancel" onclick="closeModal()">キャンセル</button>`);
+}
+/* シュート合計を1本減らす(現在のピリオド優先、なければ他のピリオドから) */
+function decShot(s, okFlag){
+  const canDec=q=>q && q.sh>0 && (!okFlag || q.gl>0);
+  let p=active.per;
+  if(!canDec(s.p[p])) p=[1,2,3,4,0].find(i=>canDec(s.p[i]));
+  if(p===undefined) return false;
+  const q=s.p[p]; q.sh--; if(okFlag) q.gl--;
+  recalcTotals(s);
+  return true;
+}
+function applyZone(n,act,zone){
+  const s=active.stats[n]||(active.stats[n]=EMPTY());
+  const ok=(act==="sok");
+  if(fixMode){
+    const have = zone==="none" ? unzonedCount(s,ok) : (ok?s.z[zone].ok:s.z[zone].ng);
+    if(have<=0){ toast("そのエリアに減らせる記録がありません"); return; }
+    if(!decShot(s,ok)){ toast("減らせる記録がありません"); return; }
+    if(zone!=="none"){ if(ok) s.z[zone].ok--; else s.z[zone].ng--; }
+    closeModal(); save(K_ACTIVE,active); refreshRow(n);
+    toast(`${zone==="none"?"エリアなし":ZNAME[zone]}の${ok?"成功":"失敗"}を1つ取り消しました`);
+    return;
+  }
+  if(zone==="none"){
+    ACT[act](s, active.per);
+    active.log.push({n,act,per:active.per});
+  }else{
+    const za=ok?"zok":"zng";
+    ACT[za](s, active.per, zone);
+    active.log.push({n,act:za,per:active.per,z:zone});
+  }
+  closeModal(); save(K_ACTIVE,active); refreshRow(n);
+  toast(`#${n} — ${zone==="none"?"エリアなし":ZNAME[zone]} ${ok?"成功○":"失敗×"}(${active.per}P)`);
+}
+/* ---- −修正モード: シュート以外の項目を1つ減らす ---- */
+function decStat(n,act){
+  const s=active.stats[n];
+  const okMsg=()=>{ save(K_ACTIVE,active); refreshRow(n); toast("1つ減らしました"); };
+  const ng=()=>toast("減らせる記録がありません");
+  if(act==="fok"||act==="fng"){
+    const okFlag=(act==="fok");
+    const canDec=q=>q && (okFlag ? q.ftm>0 : (q.fta-q.ftm)>0);
+    let p=active.per;
+    if(!canDec(s.p[p])) p=[1,2,3,4,0].find(i=>canDec(s.p[i]));
+    if(p===undefined){ ng(); return; }
+    const q=s.p[p];
+    if(okFlag){ q.ftm--; q.fta--; } else { q.fta--; }
+    recalcTotals(s); okMsg(); return;
+  }
+  const map={or:"or",dr:"dr",bl:"bl",st:"st",as:"as",to:"to",fo:"f"};
+  const k=map[act];
+  if(s[k]>0){ s[k]--; if(k==="st") s.cu=s.st; if(k==="or"||k==="dr") rmir(s); okMsg(); }
+  else ng();
+}
+function canUndo(last){
+  const s=active.stats[last.n]; if(!s) return false;
+  const q=s.p[last.per]||{gl:0,sh:0,ftm:0,fta:0};
+  switch(last.act){
+    case "sok": return q.sh>0&&q.gl>0;
+    case "sng": return q.sh-q.gl>0;
+    case "fok": return q.ftm>0;
+    case "fng": return q.fta-q.ftm>0;
+    case "or": return s.or>0; case "dr": return s.dr>0; case "re": return s.rl>0;
+    case "bl": return s.bl>0; case "st": return s.st>0; case "as": return s.as>0;
+    case "to": return s.to>0; case "fo": return s.f>0;
+    case "zok": return s.z[last.z]&&s.z[last.z].ok>0&&q.sh>0&&q.gl>0;
+    case "zng": return s.z[last.z]&&s.z[last.z].ng>0&&q.sh-q.gl>0;
+  }
+  return true;
+}
 function undo(){
   const last=active.log.pop();
   if(!last){ toast("取り消せる記録がありません"); return; }
+  if(!canUndo(last)){
+    save(K_ACTIVE,active);
+    toast("この記録はすでに修正済みのため取り消しをスキップしました");
+    if(view==="court") render(); else refreshRow(last.n);
+    return;
+  }
   UNDO[last.act](active.stats[last.n], last.per, last.z);
   save(K_ACTIVE,active);
   if(view==="court"){ render(); }
@@ -498,10 +605,11 @@ function undo(){
 }
 function cancelGame(){
   if(!confirm("この試合の記録を保存せずに破棄します。よろしいですか?")) return;
-  active=null; localStorage.removeItem(K_ACTIVE); render();
+  fixMode=false; active=null; localStorage.removeItem(K_ACTIVE); render();
 }
 function endGame(){
   if(!confirm("試合を終了して履歴に保存しますか?")) return;
+  fixMode=false;
   const g={...active}; delete g.log; delete g.per;
   games.unshift(g); save(K_GAMES,games);
   active=null; localStorage.removeItem(K_ACTIVE);
@@ -517,12 +625,13 @@ function startEdit(id){
   if(idx<0) return;
   active=JSON.parse(JSON.stringify(games[idx]));
   active.editing=true; active.origIndex=idx; active.per=1; active.log=[];
-  selPlayer=null;
+  selPlayer=null; fixMode=false;
   save(K_ACTIVE,active);
   view="game"; histSel=null; render();
-  toast("再編集モード: ボタン追加・選手名タップの修正・コート入力が使えます");
+  toast("再編集モード: ボタン追加・−修正・選手名タップの修正が使えます");
 }
 function finishEdit(){
+  fixMode=false;
   const idx=active.origIndex;
   const g={...active}; delete g.log; delete g.per; delete g.editing; delete g.origIndex;
   if(idx>=0 && idx<games.length && games[idx].id===g.id) games[idx]=g;
@@ -535,6 +644,7 @@ function finishEdit(){
 }
 function cancelEdit(){
   if(!confirm("編集した内容を破棄して元に戻します。よろしいですか?")) return;
+  fixMode=false;
   const id=active.id;
   active=null; localStorage.removeItem(K_ACTIVE);
   histSel=id; view="history"; render();
@@ -591,21 +701,15 @@ function courtHTML(){
   return `
   ${active.editing?`<div class="editband">✏ 保存済みの試合を編集中</div>`:""}
   <div class="gamehead">
-    <div class="title">シュート位置の記録 <span class="muted">vs ${esc(active.opponent)}</span></div>
+    <div class="title">シュートエリアの確認・修正 <span class="muted">vs ${esc(active.opponent)}</span></div>
     <div class="ptog">${[1,2,3,4].map(i=>`<button class="${active.per===i?'on':''}" onclick="setPer(${i})">${i}P</button>`).join("")}</div>
-    <div class="spacer"></div>
-    <span class="muted">入力は選手のS○/S×にも自動反映</span>
-  </div>
-  <div class="chips">${active.members.map(n=>`<button class="chip ${n===selPlayer?'on':''}" onclick="selPlayer='${n}';render()">${n} ${esc(nameForGame(active,n))}</button>`).join("")}</div>
-  <div class="modetog">
-    <button class="m mok ${courtMode==='ok'?'on':''}" onclick="courtMode='ok';render()">成功 ○</button>
-    <button class="m mng ${courtMode==='ng'?'on':''}" onclick="courtMode='ng';render()">失敗 ×</button>
     <div class="spacer"></div>
     <button class="btn dark small" onclick="undo()">↩ 戻す${active.log.length?` (${active.log.length})`:""}</button>
   </div>
-  <div class="legend">いま選択中: <b>#${p} ${esc(name)}</b> の <b style="color:${courtMode==='ok'?'var(--ok)':'var(--ng)'};">${courtMode==='ok'?'成功':'失敗'}</b>(${active.per}P) — コートのエリアをタップすると記録されます</div>
+  <div class="legend">シュートの入力は「試合」タブのS○/S×から行います(エリア選択でここに自動反映)。この画面では入力内容の確認と、選手ごとの±修正ができます。</div>
+  <div class="chips">${active.members.map(n=>`<button class="chip ${n===selPlayer?'on':''}" onclick="selPlayer='${n}';render()">${n} ${esc(nameForGame(active,n))}</button>`).join("")}</div>
   <div class="courtwrap">
-    <div class="courtbox card" style="padding:8px;">${courtSVG(active,true)}</div>
+    <div class="courtbox card" style="padding:8px;">${courtSVG(active,false)}</div>
     <div style="flex:1; min-width:320px;">
       <div class="card" style="border:2px solid var(--navy);">
         <h2 class="sec" style="margin-top:0;">#${p} ${esc(name)} の詳細 <span class="muted" style="font-weight:400;">±で直接修正できます</span></h2>
@@ -639,28 +743,13 @@ function playerSummary(n){
   const s=active.stats[n]||EMPTY();
   return `シュート計 ${s.gl}/${s.sh} (${pct(s.gl,s.sh)})　FT ${s.ftm}/${s.fta}　R${s.re}(O${s.or} D${s.dr})　<span style="color:var(--orange-d);">${pts(s)}点</span>`;
 }
-function zoneTap(k){
-  const s=active.stats[selPlayer]||(active.stats[selPlayer]=EMPTY());
-  const act=courtMode==="ok"?"zok":"zng";
-  ACT[act](s, active.per, k);
-  active.log.push({n:selPlayer, act, per:active.per, z:k});
-  save(K_ACTIVE,active);
-  render();
-  toast(`#${selPlayer} ${nameForGame(active,selPlayer)} — ${ZNAME[k]} ${courtMode==="ok"?"成功○":"失敗×"}(${active.per}P)`);
-}
 function zFix(k,which,d){
   const s=active.stats[selPlayer]||(active.stats[selPlayer]=EMPTY());
   const z=s.z[k];
   if(d<0){
     if(z[which]<=0){ toast(`#${selPlayer}の${ZNAME[k]}${which==="ok"?"成功":"失敗"}は0のため減らせません(選手を切り替えてください)`); return; }
+    if(!decShot(s, which==="ok")){ toast("減らせる記録がありません"); return; }
     z[which]--;
-    /* ピリオド内訳: 現在Pから引けなければ他のPから引く */
-    let per=active.per;
-    const okFlag=(which==="ok");
-    const canDec=q=>q && q.sh>0 && (!okFlag || q.gl>0);
-    if(!canDec(s.p[per])){ per=[1,2,3,4,0].find(i=>canDec(s.p[i])); }
-    if(per!==undefined){ const q=s.p[per]; q.sh--; if(okFlag) q.gl--; }
-    recalcTotals(s);
   }else{
     z[which]++;
     const q=perGet(s,active.per); q.sh++; if(which==="ok") q.gl++;
@@ -720,6 +809,8 @@ function helpModal(){
   showModal(`<h3>ボタンの説明</h3>
     <div style="font-size:14px; line-height:2;">
       <b>S○</b>=シュート成功(2点) / <b>S×</b>=シュート失敗<br>
+      　→押すとエリア選択(ゴール下/レイアップ/ジャンプ/ロング)が出て、<br>
+      　コートタブにも自動で反映されます。<br>
       <b>FT○</b>=フリースロー成功(1点) / <b>FT×</b>=FT失敗<br>
       <b>OR</b>=オフェンスリバウンド / <b>DR</b>=ディフェンスリバウンド<br>
       (隣の<b>R</b>欄は合計の自動計算・タップ不要)<br>
@@ -727,9 +818,10 @@ function helpModal(){
       <b>A</b>=アシスト / <b>TO</b>=ターンオーバー / <b>F</b>=ファウル<br>
       上の1P〜4Pで現在のピリオドを切り替えます。<br>
       ボタンの数字は現在の回数、ファウルは4つ目から赤表示。<br>
-      選手名をタップすると数値を直接修正できます。<br>
-      「↩ 戻す」で直前のタップを取り消せます。<br>
-      「コート」タブではシュートを打った場所ごとに記録できます。
+      間違えたときは「<b>− 修正</b>」でタップ=−1のモードに、<br>
+      「↩ 戻す」で直前の入力を取り消し、<br>
+      選手名タップで数値の直接修正もできます。<br>
+      「コート」タブはエリア別の確認と±修正の画面です。
     </div>
     <div class="mfoot"><button class="btn" onclick="closeModal()">閉じる</button></div>`);
 }
