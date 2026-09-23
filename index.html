@@ -94,7 +94,11 @@ label.fld input{margin-top:4px; font-weight:400;}
 .abtn:active{transform:scale(.93);}
 .abtn.sok{background:var(--ok);} .abtn.sng{background:var(--ng);}
 .abtn.fok{background:var(--ok); opacity:.75;} .abtn.fng{background:var(--ng); opacity:.75;}
-.abtn.re{background:var(--blue);} .abtn.bl{background:var(--purple);}
+.abtn.re{background:var(--blue);} .abtn.dre{background:#1c7f9e;} .abtn.bl{background:var(--purple);}
+.rdisp{display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+  background:#e9e4d6; color:var(--navy); border-radius:8px; font-weight:800; font-size:11px;
+  width:40px; height:calc(var(--rowH,54px) - 12px); min-height:30px; max-height:46px; line-height:1.05; flex-shrink:0;}
+.rdisp b{font-size:14px;}
 .abtn.st{background:var(--orange);} .abtn.as{background:var(--teal);}
 .abtn.to{background:var(--gray);} .abtn.fo{background:#8a6d1a;}
 .abtn b{font-size:13px; margin-left:2px;}
@@ -173,12 +177,15 @@ h2.sec{font-size:16px; color:var(--navy); margin:4px 0 10px;}
   font-weight:600; opacity:0; transition:opacity .3s; pointer-events:none; z-index:300; white-space:nowrap; max-width:92vw; overflow:hidden; text-overflow:ellipsis;}
 #toast.show{opacity:.94;}
 @media (max-width:1100px){
-  .pid{width:78px;} .pid .pname{font-size:12px; margin-left:3px;}
-  .abtn{width:40px; font-size:10.5px;}
-  .abtn b{font-size:11.5px; margin-left:2px;}
-  .pstats{font-size:10.5px;}
-  .pstats .mini{font-size:9.5px;}
-  .pstats .pts{font-size:14px; margin-left:4px;}
+  .pid{width:74px;} .pid .pname{font-size:11.5px; margin-left:3px;}
+  .pbtns{gap:3px;}
+  .abtn{width:38px; font-size:10px;}
+  .abtn b{font-size:11px; margin-left:1px;}
+  .rdisp{width:32px; font-size:9.5px;}
+  .rdisp b{font-size:12px;}
+  .pstats{font-size:10px;}
+  .pstats .mini{font-size:9px;}
+  .pstats .pts{font-size:13.5px; margin-left:4px;}
 }
 /* PDF出力(印刷) */
 @media print{
@@ -223,13 +230,16 @@ const load=(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
 const emptyZ=()=>({goal:{ok:0,ng:0},lay:{ok:0,ng:0},jump:{ok:0,ng:0},long:{ok:0,ng:0}});
-const EMPTY=()=>({sh:0,gl:0,fta:0,ftm:0,re:0,bl:0,st:0,cu:0,as:0,to:0,f:0,p:{},z:emptyZ()});
+const EMPTY=()=>({sh:0,gl:0,fta:0,ftm:0,or:0,dr:0,rl:0,re:0,bl:0,st:0,cu:0,as:0,to:0,f:0,p:{},z:emptyZ()});
 
-/* 旧形式(v1/v2)→v3への変換。v3は p(ピリオド別シュート)と z(エリア別)を持つ */
+/* 旧形式(v1/v2)→v3への変換。v3は p(ピリオド別シュート)と z(エリア別)を持つ。
+   リバウンドはOR/DRに分割。旧データの内訳なしリバウンドは rl に保持し、R合計(re)に含める */
 function migrateStats(s){
   if(!s) return EMPTY();
   const out=EMPTY();
-  out.re=s.re||0; out.bl=s.bl||0;
+  out.or=s.or||0; out.dr=s.dr||0;
+  out.rl=(s.rl!==undefined)? s.rl : ((s.or!==undefined||s.dr!==undefined)? 0 : (s.re||0));
+  out.bl=s.bl||0;
   out.st=(s.st!==undefined)?s.st:(s.cu||0); out.cu=out.st;
   out.as=s.as||0; out.to=s.to||0; out.f=s.f||0;
   if(s.z){ ZONES.forEach(k=>{ if(s.z[k]) out.z[k]={ok:s.z[k].ok||0,ng:s.z[k].ng||0}; }); }
@@ -247,7 +257,9 @@ function recalcTotals(s){
   let gl=0,sh=0,ftm=0,fta=0;
   for(const k in s.p){ const q=s.p[k]; gl+=q.gl; sh+=q.sh; ftm+=q.ftm; fta+=q.fta; }
   s.gl=gl; s.sh=sh; s.ftm=ftm; s.fta=fta; s.cu=s.st;
+  s.re=(s.or||0)+(s.dr||0)+(s.rl||0); /* R合計は自動計算 */
 }
+const rmir=s=>{ s.re=(s.or||0)+(s.dr||0)+(s.rl||0); };
 function migrateGame(g){
   const ns={};
   (g.members||[]).forEach(n=>ns[n]=migrateStats(g.stats&&g.stats[n]));
@@ -408,7 +420,9 @@ function playerRowHTML(n){
       <button class="abtn sng" onclick="rec('${n}','sng')">S×<b>${s.sh-s.gl}</b></button>
       <button class="abtn fok" onclick="rec('${n}','fok')">FT○<b>${s.ftm}</b></button>
       <button class="abtn fng" onclick="rec('${n}','fng')">FT×<b>${s.fta-s.ftm}</b></button>
-      <button class="abtn re" onclick="rec('${n}','re')">R<b>${s.re}</b></button>
+      <button class="abtn re" onclick="rec('${n}','or')">OR<b>${s.or}</b></button>
+      <button class="abtn dre" onclick="rec('${n}','dr')">DR<b>${s.dr}</b></button>
+      <span class="rdisp">R<b>${s.re}</b></span>
       <button class="abtn bl" onclick="rec('${n}','bl')">B<b>${s.bl}</b></button>
       <button class="abtn st" onclick="rec('${n}','st')">ST<b>${s.st}</b></button>
       <button class="abtn as" onclick="rec('${n}','as')">A<b>${s.as}</b></button>
@@ -417,7 +431,7 @@ function playerRowHTML(n){
     </div>
     <div class="pstats">
       S ${s.gl}/${s.sh} (${pct(s.gl,s.sh)})　FT ${s.ftm}/${s.fta}<br>
-      <span class="mini">R${s.re} B${s.bl} ST${s.st} A${s.as} TO${s.to} <span class="${s.f>=4?'foul4':''}">F${s.f}</span></span><span class="pts">${pts(s)}点</span>
+      <span class="mini">R${s.re}(O${s.or} D${s.dr}) B${s.bl} ST${s.st} A${s.as} TO${s.to} <span class="${s.f>=4?'foul4':''}">F${s.f}</span></span><span class="pts">${pts(s)}点</span>
     </div>
   </div>`;
 }
@@ -452,7 +466,8 @@ const ACT={
   sng:(s,per)=>{ const q=perGet(s,per); q.sh++; s.sh++; },
   fok:(s,per)=>{ const q=perGet(s,per); q.fta++; q.ftm++; s.fta++; s.ftm++; },
   fng:(s,per)=>{ const q=perGet(s,per); q.fta++; s.fta++; },
-  re:s=>s.re++, bl:s=>s.bl++, st:s=>{s.st++;s.cu=s.st;}, as:s=>s.as++, to:s=>s.to++, fo:s=>s.f++,
+  or:s=>{s.or++;rmir(s);}, dr:s=>{s.dr++;rmir(s);}, re:s=>{s.rl++;rmir(s);},
+  bl:s=>s.bl++, st:s=>{s.st++;s.cu=s.st;}, as:s=>s.as++, to:s=>s.to++, fo:s=>s.f++,
   zok:(s,per,z)=>{ const q=perGet(s,per); q.sh++; q.gl++; s.sh++; s.gl++; s.z[z].ok++; },
   zng:(s,per,z)=>{ const q=perGet(s,per); q.sh++; s.sh++; s.z[z].ng++; }
 };
@@ -461,7 +476,8 @@ const UNDO={
   sng:(s,per)=>{ const q=perGet(s,per); q.sh--; s.sh--; },
   fok:(s,per)=>{ const q=perGet(s,per); q.fta--; q.ftm--; s.fta--; s.ftm--; },
   fng:(s,per)=>{ const q=perGet(s,per); q.fta--; s.fta--; },
-  re:s=>s.re--, bl:s=>s.bl--, st:s=>{s.st--;s.cu=s.st;}, as:s=>s.as--, to:s=>s.to--, fo:s=>s.f--,
+  or:s=>{s.or--;rmir(s);}, dr:s=>{s.dr--;rmir(s);}, re:s=>{s.rl--;rmir(s);},
+  bl:s=>s.bl--, st:s=>{s.st--;s.cu=s.st;}, as:s=>s.as--, to:s=>s.to--, fo:s=>s.f--,
   zok:(s,per,z)=>{ const q=perGet(s,per); q.sh--; q.gl--; s.sh--; s.gl--; s.z[z].ok--; },
   zng:(s,per,z)=>{ const q=perGet(s,per); q.sh--; s.sh--; s.z[z].ng--; }
 };
@@ -572,7 +588,6 @@ function courtHTML(){
   }
   if(!selPlayer || !active.members.includes(selPlayer)) selPlayer=active.members[0];
   const p=selPlayer, name=nameForGame(active,p);
-  const editHead=courtEdit?`<th>成功 ±</th><th>失敗 ±</th>`:"";
   return `
   ${active.editing?`<div class="editband">✏ 保存済みの試合を編集中</div>`:""}
   <div class="gamehead">
@@ -591,20 +606,38 @@ function courtHTML(){
   <div class="legend">いま選択中: <b>#${p} ${esc(name)}</b> の <b style="color:${courtMode==='ok'?'var(--ok)':'var(--ng)'};">${courtMode==='ok'?'成功':'失敗'}</b>(${active.per}P) — コートのエリアをタップすると記録されます</div>
   <div class="courtwrap">
     <div class="courtbox card" style="padding:8px;">${courtSVG(active,true)}</div>
-    <div style="flex:1; min-width:300px;">
-      <div class="card">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <h2 class="sec" style="margin:0; flex:1;">エリア別集計(チーム)</h2>
-          <button class="btn ${courtEdit?'orange':'ghost'} small" onclick="courtEdit=!courtEdit;render()">${courtEdit?"修正を終了":"✎ 修正"}</button>
-        </div>
-        <div class="tablewrap" style="margin-top:10px;"><table class="stats" id="ztable">
-          <tr><th>エリア</th><th>シュート数</th><th>成功</th><th>失敗</th><th>成功率</th>${editHead}</tr>
-          ${zoneTableRows(active,courtEdit)}
+    <div style="flex:1; min-width:320px;">
+      <div class="card" style="border:2px solid var(--navy);">
+        <h2 class="sec" style="margin-top:0;">#${p} ${esc(name)} の詳細 <span class="muted" style="font-weight:400;">±で直接修正できます</span></h2>
+        <div class="tablewrap"><table class="stats" id="ptable">
+          <tr><th>エリア</th><th>数</th><th>成功</th><th>失敗</th><th>率</th><th>成功 ±</th><th>失敗 ±</th></tr>
+          ${playerZoneRows(p)}
         </table></div>
-        <div class="muted" style="margin-top:8px;">${courtEdit?`修正は選択中の選手(#${p} ${esc(name)})の${active.per}Pの記録として反映されます`:"「✎ 修正」で入力済みの数を後から調整できます。選手ごとのエリア別集計は履歴詳細で見られます。"}</div>
+        <div style="margin-top:8px; font-size:14px; font-weight:700; color:var(--navy);">${playerSummary(p)}</div>
+      </div>
+      <div class="card">
+        <h2 class="sec" style="margin-top:0;">エリア別集計(チーム)</h2>
+        <div class="tablewrap"><table class="stats" id="ztable">
+          <tr><th>エリア</th><th>シュート数</th><th>成功</th><th>失敗</th><th>成功率</th></tr>
+          ${zoneTableRows(active,false)}
+        </table></div>
+        <div class="muted" style="margin-top:8px;">±での修正は選択中の選手の${active.per}Pの記録として反映されます。全選手のエリア別集計は履歴詳細で見られます。</div>
       </div>
     </div>
   </div>`;
+}
+function playerZoneRows(n){
+  const s=active.stats[n]||EMPTY();
+  return ZONES.map(k=>{
+    const o=s.z[k], att=o.ok+o.ng;
+    return `<tr><td class="nm">${ZNAME[k]}</td><td>${att}</td><td class="okc">${o.ok}</td><td class="ngc">${o.ng}</td><td>${pct(o.ok,att)}</td>
+      <td><button class="stepbtn minus" onclick="zFix('${k}','ok',-1)">−</button><button class="stepbtn" onclick="zFix('${k}','ok',1)">＋</button></td>
+      <td><button class="stepbtn minus" onclick="zFix('${k}','ng',-1)">−</button><button class="stepbtn" onclick="zFix('${k}','ng',1)">＋</button></td></tr>`;
+  }).join("");
+}
+function playerSummary(n){
+  const s=active.stats[n]||EMPTY();
+  return `シュート計 ${s.gl}/${s.sh} (${pct(s.gl,s.sh)})　FT ${s.ftm}/${s.fta}　R${s.re}(O${s.or} D${s.dr})　<span style="color:var(--orange-d);">${pts(s)}点</span>`;
 }
 function zoneTap(k){
   const s=active.stats[selPlayer]||(active.stats[selPlayer]=EMPTY());
@@ -640,7 +673,8 @@ function zFix(k,which,d){
 /* ================= fix modal ================= */
 let fixTarget=null;
 const PSTAT_LABELS={sh:"シュート数",gl:"ゴール数(成功)",fta:"フリースロー数",ftm:"FT成功"};
-const OSTAT_LABELS={re:"リバウンド",bl:"ブロック",st:"スティール",as:"アシスト",to:"ターンオーバー",f:"ファウル"};
+const OSTAT_LABELS={or:"オフェンスリバウンド(OR)",dr:"ディフェンスリバウンド(DR)",rl:"リバウンド(旧記録・内訳なし)",bl:"ブロック",st:"スティール",as:"アシスト",to:"ターンオーバー",f:"ファウル"};
+function ostatKeys(s){ return Object.keys(OSTAT_LABELS).filter(k=>k!=="rl"||s.rl>0); }
 function openFix(n){
   fixTarget=n;
   const s=active.stats[n]||(active.stats[n]=EMPTY());
@@ -655,7 +689,7 @@ function openFix(n){
       </div>`).join("");
   });
   html+=`<h4>その他</h4>`;
-  html+=Object.keys(OSTAT_LABELS).map(k=>`
+  html+=ostatKeys(s).map(k=>`
     <div class="step"><span class="sl">${OSTAT_LABELS[k]}</span>
       <span class="ctr"><button class="minus" onclick="stepFixO('${k}',-1)">−</button><span class="val" id="fx-o-${k}">${s[k]}</span><button onclick="stepFixO('${k}',1)">＋</button></span>
     </div>`).join("");
@@ -678,6 +712,7 @@ function stepFixO(k,d){
   const s=active.stats[fixTarget];
   s[k]=Math.max(0,s[k]+d);
   if(k==="st") s.cu=s.st;
+  if(k==="or"||k==="dr"||k==="rl") rmir(s);
   const el=document.getElementById("fx-o-"+k); if(el) el.textContent=s[k];
   save(K_ACTIVE,active);
 }
@@ -686,7 +721,9 @@ function helpModal(){
     <div style="font-size:14px; line-height:2;">
       <b>S○</b>=シュート成功(2点) / <b>S×</b>=シュート失敗<br>
       <b>FT○</b>=フリースロー成功(1点) / <b>FT×</b>=FT失敗<br>
-      <b>R</b>=リバウンド / <b>B</b>=ブロック / <b>ST</b>=スティール<br>
+      <b>OR</b>=オフェンスリバウンド / <b>DR</b>=ディフェンスリバウンド<br>
+      (隣の<b>R</b>欄は合計の自動計算・タップ不要)<br>
+      <b>B</b>=ブロック / <b>ST</b>=スティール<br>
       <b>A</b>=アシスト / <b>TO</b>=ターンオーバー / <b>F</b>=ファウル<br>
       上の1P〜4Pで現在のピリオドを切り替えます。<br>
       ボタンの数字は現在の回数、ファウルは4つ目から赤表示。<br>
@@ -788,18 +825,21 @@ function gameDetailHTML(g){
   const sc=gameScore(g);
   const qline=g.quarters.map((q,i)=>`${i+1}P ${q.us||0}-${q.th||0}`).join("　");
   let T=EMPTY();
+  const ord=(s,k)=>(s.or+s.dr===0&&s.rl>0)?"-":s[k]; /* 旧データ(内訳なし)はOR/DRを"-"表示 */
   const rows=g.members.map(n=>{
     const s=g.stats[n]||EMPTY();
-    ["gl","sh","ftm","fta","re","bl","st","as","to","f"].forEach(k=>T[k]+=s[k]);
+    ["gl","sh","ftm","fta","or","dr","rl","bl","st","as","to","f"].forEach(k=>T[k]+=s[k]);
     return `<tr><td class="nm">${n} ${esc(nameForGame(g,n))}</td>
       <td>${s.gl}/${s.sh}</td><td>${pct(s.gl,s.sh)}</td>
       <td>${s.ftm}/${s.fta}</td><td>${pct(s.ftm,s.fta)}</td>
-      <td>${s.re}</td><td>${s.bl}</td><td>${s.st}</td><td>${s.as}</td><td>${s.to}</td><td>${s.f}</td><td><b>${pts(s)}</b></td></tr>`;
+      <td>${ord(s,"or")}</td><td>${ord(s,"dr")}</td><td><b>${s.or+s.dr+s.rl}</b></td>
+      <td>${s.bl}</td><td>${s.st}</td><td>${s.as}</td><td>${s.to}</td><td>${s.f}</td><td><b>${pts(s)}</b></td></tr>`;
   }).join("");
   const totalRow=`<tr class="total"><td class="nm">チーム合計</td>
     <td>${T.gl}/${T.sh}</td><td>${pct(T.gl,T.sh)}</td>
     <td>${T.ftm}/${T.fta}</td><td>${pct(T.ftm,T.fta)}</td>
-    <td>${T.re}</td><td>${T.bl}</td><td>${T.st}</td><td>${T.as}</td><td>${T.to}</td><td>${T.f}</td><td><b>${pts(T)}</b></td></tr>`;
+    <td>${T.or}</td><td>${T.dr}</td><td><b>${T.or+T.dr+T.rl}</b></td>
+    <td>${T.bl}</td><td>${T.st}</td><td>${T.as}</td><td>${T.to}</td><td>${T.f}</td><td><b>${pts(T)}</b></td></tr>`;
   return `<div class="card">
     <div class="gamehead">
       <span class="noprint"><button class="btn ghost small" onclick="histSel=null;render()">‹ 一覧へ</button></span>
@@ -819,7 +859,7 @@ function gameDetailHTML(g){
     ${zoneSection(g)}
     <h2 class="sec" style="margin-top:16px;">選手別</h2>
     <div class="tablewrap"><table class="stats">
-      <tr><th>選手</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>Re</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>得点</th></tr>
+      <tr><th>選手</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>OR</th><th>DR</th><th>R計</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>得点</th></tr>
       ${rows}${totalRow}
     </table></div>
     <div class="muted noprint" style="margin-top:8px;">「PDF出力」→ iPadでは印刷プレビューを共有ボタンから「PDFを保存」、パソコンでは送信先「PDFに保存」を選んでください。</div>
@@ -832,11 +872,11 @@ function delGame(id){
 }
 function exportCSV(id){
   const g=games.find(x=>x.id===id); if(!g) return;
-  let csv="﻿背番号,名前,シュート数,ゴール数,成功率,FT数,FT成功,FT%,リバウンド,ブロック,スティール,アシスト,ターンオーバー,ファウル,得点,ゴール下成功,ゴール下失敗,レイアップ成功,レイアップ失敗,ジャンプ成功,ジャンプ失敗,ロング成功,ロング失敗\n";
+  let csv="﻿背番号,名前,シュート数,ゴール数,成功率,FT数,FT成功,FT%,OR,DR,R計,ブロック,スティール,アシスト,ターンオーバー,ファウル,得点,ゴール下成功,ゴール下失敗,レイアップ成功,レイアップ失敗,ジャンプ成功,ジャンプ失敗,ロング成功,ロング失敗\n";
   g.members.forEach(n=>{
     const s=g.stats[n]||EMPTY();
     csv+=[n,nameForGame(g,n),s.sh,s.gl,pct(s.gl,s.sh),s.fta,s.ftm,pct(s.ftm,s.fta),
-      s.re,s.bl,s.st,s.as,s.to,s.f,pts(s),
+      s.or,s.dr,s.or+s.dr+s.rl,s.bl,s.st,s.as,s.to,s.f,pts(s),
       s.z.goal.ok,s.z.goal.ng,s.z.lay.ok,s.z.lay.ng,s.z.jump.ok,s.z.jump.ng,s.z.long.ok,s.z.long.ng].join(",")+"\n";
   });
   const blob=new Blob([csv],{type:"text/csv"});
@@ -880,7 +920,7 @@ function totalHTML(){
       if(!agg[num]) agg[num]={n:0, s:EMPTY(), name:nameForGame(g,num)};
       agg[num].n++;
       const s=g.stats[num]||EMPTY();
-      ["gl","sh","ftm","fta","re","bl","st","as","to","f"].forEach(k=>agg[num].s[k]+=s[k]);
+      ["gl","sh","ftm","fta","or","dr","rl","bl","st","as","to","f"].forEach(k=>agg[num].s[k]+=s[k]);
     });
   });
   const list=Object.entries(agg).sort((a,b)=>Number(a[0])-Number(b[0]));
@@ -889,13 +929,14 @@ function totalHTML(){
     return `<tr><td class="nm">${num} ${esc(roster[num]||o.name)}</td><td>${o.n}</td>
       <td>${s.gl}/${s.sh}</td><td>${pct(s.gl,s.sh)}</td>
       <td>${s.ftm}/${s.fta}</td><td>${pct(s.ftm,s.fta)}</td>
-      <td>${s.re}</td><td>${s.bl}</td><td>${s.st}</td><td>${s.as}</td><td>${s.to}</td><td>${s.f}</td>
+      <td>${s.or}</td><td>${s.dr}</td><td><b>${s.or+s.dr+s.rl}</b></td>
+      <td>${s.bl}</td><td>${s.st}</td><td>${s.as}</td><td>${s.to}</td><td>${s.f}</td>
       <td><b>${p}</b></td><td>${o.n? (p/o.n).toFixed(1):"-"}</td></tr>`;
   }).join("");
   const table = target.length===0
     ? `<div class="empty">試合が選択されていません。下の一覧から選んでください。</div>`
     : `<div class="tablewrap"><table class="stats">
-        <tr><th>選手</th><th>試合数</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>Re</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>総得点</th><th>平均</th></tr>
+        <tr><th>選手</th><th>試合数</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>OR</th><th>DR</th><th>R計</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>総得点</th><th>平均</th></tr>
         ${rows}
       </table></div>`;
   return `<div class="card"><h2 class="sec">通算成績 (${target.length}試合を集計中 / 全${games.length}試合)</h2>
