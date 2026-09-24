@@ -1045,10 +1045,8 @@ function gameDetailHTML(g){
    共有(LINE送信など)が終わるまで名前を保持し、アプリ内で次の操作をした時に元へ戻す */
 let titleRestore=null;
 function restoreTitle(){ if(titleRestore){ titleRestore(); titleRestore=null; } }
-function printGame(id){
-  const g=games.find(x=>x.id===id); if(!g) return;
+function askPrint(def){
   restoreTitle();
-  const def=`${fmtDate(g.date)} ${g.opponent}戦`;
   const name=prompt("PDFのファイル名を入力してください", def);
   if(name===null) return;
   const old=document.title;
@@ -1056,6 +1054,14 @@ function printGame(id){
   titleRestore=()=>{ document.title=old; };
   window.addEventListener("afterprint", restoreTitle, {once:true});
   window.print();
+}
+function printGame(id){
+  const g=games.find(x=>x.id===id); if(!g) return;
+  askPrint(`${fmtDate(g.date)} ${g.opponent}戦`);
+}
+function printTotals(){
+  const cnt=games.filter(g=>totSelected().has(g.id)).length;
+  askPrint(`通算成績(${cnt}試合)`);
 }
 function delGame(id){
   if(!confirm("この試合を削除しますか? 元に戻せません。")) return;
@@ -1124,24 +1130,40 @@ function totalHTML(){
       <td>${s.ftm}/${s.fta}</td><td>${pct(s.ftm,s.fta)}</td>
       <td>${s.or}</td><td>${s.dr}</td><td><b>${s.or+s.dr+s.rl}</b></td>
       <td>${s.bl}</td><td>${s.st}</td><td>${s.as}</td><td>${s.to}</td><td>${s.f}</td>
-      <td><b>${p}</b></td><td>${o.n? (p/o.n).toFixed(1):"-"}</td></tr>`;
+      <td><b>${p}</b></td></tr>`;
   }).join("");
+  const avgRows=list.map(([num,o])=>{
+    const s=o.s, p=pts(s);
+    const av=x=>o.n? (x/o.n).toFixed(1) : "-";
+    return `<tr><td class="nm">${num} ${esc(roster[num]||o.name)}</td><td>${o.n}</td>
+      <td>${av(s.gl)}/${av(s.sh)}</td><td>${pct(s.gl,s.sh)}</td>
+      <td>${av(s.ftm)}/${av(s.fta)}</td><td>${pct(s.ftm,s.fta)}</td>
+      <td>${av(s.or)}</td><td>${av(s.dr)}</td><td><b>${av(s.or+s.dr+s.rl)}</b></td>
+      <td>${av(s.bl)}</td><td>${av(s.st)}</td><td>${av(s.as)}</td><td>${av(s.to)}</td><td>${av(s.f)}</td>
+      <td><b>${av(p)}</b></td></tr>`;
+  }).join("");
+  const head=last=>`<tr><th>選手</th><th>試合数</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>OR</th><th>DR</th><th>R計</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>${last}</th></tr>`;
   const table = target.length===0
     ? `<div class="empty">試合が選択されていません。下の一覧から選んでください。</div>`
-    : `<div class="tablewrap"><table class="stats">
-        <tr><th>選手</th><th>試合数</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>OR</th><th>DR</th><th>R計</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>総得点</th><th>平均</th></tr>
-        ${rows}
-      </table></div>`;
+    : `<h2 class="sec" style="margin-top:12px;">合計</h2>
+      <div class="tablewrap"><table class="stats">${head("総得点")}${rows}</table></div>
+      <h2 class="sec" style="margin-top:16px;">1試合あたりの平均</h2>
+      <div class="tablewrap"><table class="stats">${head("平均得点")}${avgRows}</table></div>
+      <div class="muted" style="margin-top:6px;">平均は出場した試合数で割った1試合あたりの値です。成功率・FT%は期間全体の割合を表示しています。</div>`;
   /* 通算のエリア別集計: 選択中の試合を合算した擬似ゲームを作って詳細画面の部品を再利用 */
   const gm=list.map(([num])=>num);
   const snap={}; list.forEach(([num,o])=>snap[num]=roster[num]||o.name);
   const G={members:gm, stats:Object.fromEntries(list.map(([num,o])=>[num,o.s])), nameSnap:snap};
   const zoneCard = target.length===0 ? "" :
     `<div class="card"><div class="muted" style="margin-bottom:6px;">以下は選択中の${target.length}試合の合計です</div>${zoneSection(G)}</div>`;
-  return `<div class="card"><h2 class="sec">通算成績 (${target.length}試合を集計中 / 全${games.length}試合)</h2>
+  return `<div class="card">
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <h2 class="sec" style="margin:0; flex:1;">通算成績 (${target.length}試合を集計中 / 全${games.length}試合)</h2>
+      <span class="noprint"><button class="btn small" onclick="printTotals()">🖨 PDF出力</button></span>
+    </div>
     ${table}</div>
   ${zoneCard}
-  <div class="card">
+  <div class="card noprint">
     <h2 class="sec">集計する試合を選ぶ</h2>
     <div class="rowflex" style="margin-bottom:8px;">
       <button class="btn small" onclick="totAll(true)">全試合</button>
