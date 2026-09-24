@@ -307,6 +307,21 @@ let syncCfg=load(K_SYNC,{url:"",key:"basket2026",last:""});
 
 let view="game", histSel=null, totSel=null;
 let selPlayer=null, fixMode=false, zoneSel=null;
+let histSort=localStorage.getItem("bsk_sort_v1")||"new";
+function setSort(v){ histSort=v; try{localStorage.setItem("bsk_sort_v1",v);}catch(e){} render(); }
+function sortedGames(){
+  const arr=[...games];
+  const byDateDesc=(a,b)=>(b.date||"").localeCompare(a.date||"");
+  const byDateAsc=(a,b)=>(a.date||"").localeCompare(b.date||"");
+  if(histSort==="old") arr.sort(byDateAsc);
+  else if(histSort==="type") arr.sort((a,b)=>{
+    const ia=GAME_TYPES.indexOf(a.type), ib=GAME_TYPES.indexOf(b.type);
+    return (ia<0?99:ia)-(ib<0?99:ib) || byDateDesc(a,b);
+  });
+  else if(histSort==="opp") arr.sort((a,b)=>(a.opponent||"").localeCompare(b.opponent||"","ja") || byDateDesc(a,b));
+  else arr.sort(byDateDesc);
+  return arr;
+}
 
 const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -334,6 +349,7 @@ function setTabs(){
   });
 }
 function render(){
+  restoreTitle();
   setTabs();
   document.body.classList.toggle("fixmode", fixMode && view==="game" && !!active);
   const app=document.getElementById("app");
@@ -403,7 +419,7 @@ function gameHTML(){
   return `
   ${editBand}${fixBand}
   <div class="gamehead">
-    <div class="title">vs ${esc(active.opponent)}${active.type?` <span class="gtype">${esc(active.type)}</span>`:""} <span class="muted">${fmtDate(active.date)}</span></div>
+    <div class="title" onclick="openGameInfo()" style="cursor:pointer;">vs ${esc(active.opponent)}${active.type?` <span class="gtype">${esc(active.type)}</span>`:""} <span class="muted">${fmtDate(active.date)} ✎</span></div>
     <div class="ptog">${[1,2,3,4].map(i=>`<button class="${active.per===i?'on':''}" onclick="setPer(${i})">${i}P</button>`).join("")}</div>
     <div class="scorebar">${qs}
       <div class="totalbox"><div class="tl">自動<br>計算</div><div class="tv">${auto}点</div></div>
@@ -813,6 +829,30 @@ function stepFixO(k,d){
   const el=document.getElementById("fx-o-"+k); if(el) el.textContent=s[k];
   save(K_ACTIVE,active);
 }
+/* 試合情報(日付・種別・対戦相手)の修正 */
+function openGameInfo(){
+  if(!active) return;
+  const typeOpts=GAME_TYPES.map(t=>`<option value="${t}" ${active.type===t?"selected":""}>${t}</option>`).join("");
+  showModal(`<h3>試合情報の修正</h3>
+    <label class="fld">日付<input type="date" id="gi-date" value="${esc(active.date)}"></label>
+    <label class="fld">試合種別<select id="gi-type"><option value="" ${!active.type?"selected":""}>選択なし</option>${typeOpts}</select></label>
+    <label class="fld">対戦相手<input type="text" id="gi-opp" value="${esc(active.opponent)}"></label>
+    <div class="mfoot">
+      <button class="btn ghost" onclick="closeModal()">キャンセル</button>
+      <button class="btn orange" onclick="saveGameInfo()">保存</button>
+    </div>`);
+}
+function saveGameInfo(){
+  const d=document.getElementById("gi-date").value;
+  const t=document.getElementById("gi-type").value;
+  const o=document.getElementById("gi-opp").value.trim();
+  if(d) active.date=d;
+  active.type=t;
+  if(o) active.opponent=o;
+  save(K_ACTIVE,active);
+  closeModal(); render();
+  toast("試合情報を更新しました");
+}
 function helpModal(){
   showModal(`<h3>ボタンの説明</h3>
     <div style="font-size:14px; line-height:2;">
@@ -850,7 +890,7 @@ function gameScore(g){
 }
 function historyHTML(){
   if(games.length===0) return `<div class="empty">保存された試合はまだありません。<br>「試合」タブから記録を始めてください。</div>`;
-  const items=games.map(g=>{
+  const items=sortedGames().map(g=>{
     const sc=gameScore(g);
     const cls=sc.th==null?"":(sc.us>sc.th?"win":(sc.us<sc.th?"lose":""));
     const scTxt=sc.th==null? `${sc.us}点` : `${sc.us} - ${sc.th}`;
@@ -861,7 +901,20 @@ function historyHTML(){
       <div style="color:var(--sub);">›</div>
     </div>`;
   }).join("");
-  return `<div class="card"><h2 class="sec">試合履歴 (${games.length})</h2>${items}</div>`;
+  return `<div class="card">
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <h2 class="sec" style="margin:0; flex:1;">試合履歴 (${games.length})</h2>
+      <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--navy);">並び順
+        <select style="width:auto; padding:8px 32px 8px 10px; font-size:14px;" onchange="setSort(this.value)">
+          <option value="new" ${histSort==="new"?"selected":""}>日付が新しい順</option>
+          <option value="old" ${histSort==="old"?"selected":""}>日付が古い順</option>
+          <option value="type" ${histSort==="type"?"selected":""}>試合種別ごと</option>
+          <option value="opp" ${histSort==="opp"?"selected":""}>対戦相手ごと</option>
+        </select>
+      </label>
+    </div>
+    <div style="margin-top:6px;">${items}</div>
+  </div>`;
 }
 function periodTable(g){
   if(!hasPeriod(g)){
@@ -988,18 +1041,20 @@ function gameDetailHTML(g){
     <div class="muted noprint" style="margin-top:8px;">「PDF出力」→ iPadでは印刷プレビューを共有ボタンから「PDFを保存」、パソコンでは送信先「PDFに保存」を選んでください(個人ビューはPDFに含まれません)。</div>
   </div>`;
 }
-/* PDF出力: ファイル名(=保存時のPDF名)を指定してから印刷画面を開く */
+/* PDF出力: ファイル名(=保存・共有時のPDF名)を指定してから印刷画面を開く。
+   共有(LINE送信など)が終わるまで名前を保持し、アプリ内で次の操作をした時に元へ戻す */
+let titleRestore=null;
+function restoreTitle(){ if(titleRestore){ titleRestore(); titleRestore=null; } }
 function printGame(id){
   const g=games.find(x=>x.id===id); if(!g) return;
+  restoreTitle();
   const def=`${fmtDate(g.date)} ${g.opponent}戦`;
   const name=prompt("PDFのファイル名を入力してください", def);
   if(name===null) return;
   const old=document.title;
   document.title=(name.trim()||def);
-  let restored=false;
-  const restore=()=>{ if(restored) return; restored=true; document.title=old; window.removeEventListener("afterprint",restore); };
-  window.addEventListener("afterprint",restore);
-  setTimeout(restore, 4000);
+  titleRestore=()=>{ document.title=old; };
+  window.addEventListener("afterprint", restoreTitle, {once:true});
   window.print();
 }
 function delGame(id){
@@ -1041,7 +1096,7 @@ function totalHTML(){
   const target=games.filter(g=>sel.has(g.id));
   const typeBtns=GAME_TYPES.filter(t=>games.some(g=>g.type===t))
     .map(t=>`<button class="btn ghost small" onclick="totByType('${t}')">${t}のみ</button>`).join("");
-  const gsel=games.map(g=>{
+  const gsel=sortedGames().map(g=>{
     const sc=gameScore(g);
     return `<label class="checkrow">
       <input type="checkbox" ${sel.has(g.id)?"checked":""} onchange="toggleTot('${g.id}',this.checked)">
