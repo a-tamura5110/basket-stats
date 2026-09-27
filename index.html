@@ -46,10 +46,12 @@ main{padding:14px; max-width:1200px; margin:0 auto;}
 .btn.dark{background:#3d4a5c;}
 .btn.small{padding:7px 12px; font-size:13px; border-radius:8px;}
 .muted{color:var(--sub); font-size:12px;}
-input[type=text],input[type=date],input[type=number],select{
+input[type=text],input[type=date],input[type=number],select,textarea{
   font-size:16px; padding:10px; border:1px solid var(--line); border-radius:8px;
   background:#fff; width:100%;
 }
+textarea{resize:vertical; min-height:90px; font-family:inherit; line-height:1.6;}
+.memobox{white-space:pre-wrap; background:#faf8f2; border:1px solid var(--line); border-radius:8px; padding:10px; font-size:14px; margin-top:4px; line-height:1.7;}
 select{-webkit-appearance:none; appearance:none;
   background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8578' stroke-width='2' fill='none'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:right 12px center; padding-right:32px;}
@@ -270,6 +272,7 @@ function recalcTotals(s){
 }
 const rmir=s=>{ s.re=(s.or||0)+(s.dr||0)+(s.rl||0); };
 function migrateGame(g){
+  g.memoGame=g.memoGame||""; g.memoOpp=g.memoOpp||"";
   const ns={};
   (g.members||[]).forEach(n=>ns[n]=migrateStats(g.stats&&g.stats[n]));
   g.stats=ns;
@@ -401,7 +404,7 @@ function startGame(){
   nums.forEach(n=>{ stats[n]=EMPTY(); snap[n]=roster[n]; });
   active={ id:uid(), date, type, opponent:opp, per:1,
     quarters:[{us:"",th:""},{us:"",th:""},{us:"",th:""},{us:"",th:""}],
-    stats, log:[], members:nums, nameSnap:snap };
+    stats, log:[], members:nums, nameSnap:snap, memoGame:"", memoOpp:"" };
   selPlayer=null; fixMode=false;
   save(K_ACTIVE,active); render();
 }
@@ -754,8 +757,19 @@ function courtHTML(){
         <div class="muted" style="margin-top:8px;">±での修正は選択中の選手の${active.per}Pの記録として反映されます。全選手のエリア別集計は履歴詳細で見られます。</div>
       </div>
     </div>
+  </div>
+  <div class="card" style="margin-top:14px;">
+    <h2 class="sec">メモ</h2>
+    <label class="fld">試合ポイント
+      <textarea rows="4" placeholder="試合の感想・良かった点・課題など" oninput="setMemo('memoGame',this.value)">${esc(active.memoGame||"")}</textarea>
+    </label>
+    <label class="fld">対戦相手(${esc(active.opponent)})ポイント
+      <textarea rows="4" placeholder="相手チームの特徴・注意する選手・次回対策など" oninput="setMemo('memoOpp',this.value)">${esc(active.memoOpp||"")}</textarea>
+    </label>
+    <div class="muted">自動で保存されます。試合終了後は履歴の一番下に表示され、PDFにも含まれます。</div>
   </div>`;
 }
+function setMemo(k,v){ active[k]=v; save(K_ACTIVE,active); }
 function playerZoneRows(n){
   const s=active.stats[n]||EMPTY();
   return ZONES.map(k=>{
@@ -1040,6 +1054,11 @@ function gameDetailHTML(g){
       ${rows}${totalRow}
     </table></div>
     <div style="margin-top:16px;">${zoneSection(g)}</div>
+    ${(g.memoGame||g.memoOpp)?`
+    <h2 class="sec" style="margin-top:16px;">メモ</h2>
+    ${g.memoGame?`<div style="margin-bottom:10px;"><b style="color:var(--navy); font-size:14px;">試合ポイント</b><div class="memobox">${esc(g.memoGame)}</div></div>`:""}
+    ${g.memoOpp?`<div><b style="color:var(--navy); font-size:14px;">対戦相手(${esc(g.opponent)})ポイント</b><div class="memobox">${esc(g.memoOpp)}</div></div>`:""}`
+    :`<div class="muted noprint" style="margin-top:16px;">メモ(試合ポイント/対戦相手ポイント)は、記録中または再編集中に「コート」タブの下部で記入できます。</div>`}
     <div class="muted noprint" style="margin-top:8px;">「PDF出力」→ iPadでは印刷プレビューを共有ボタンから「PDFを保存」、パソコンでは送信先「PDFに保存」を選んでください(個人ビューはPDFに含まれません)。</div>
   </div>`;
 }
