@@ -705,16 +705,18 @@ function courtSVG(g, interactive, zget){
     ${label("long",cy+276)}
   </svg>`;
 }
-function zoneTableRows(g, edit, zget){
+function zoneTableRows(g, edit, zget, withTotal){
   zget = zget || zgetTeam(g);
   const t={}; ZONES.forEach(k=>t[k]=zget(k));
   const totalAtt=ZONES.reduce((a,k)=>a+t[k].ok+t[k].ng,0);
+  const totalOk=ZONES.reduce((a,k)=>a+t[k].ok,0);
+  const totalRow=withTotal?`<tr class="total"><td class="nm">シュート合計</td><td>${totalAtt}</td><td>${totalAtt}/${totalAtt} (${totalAtt>0?"100%":"-"})</td><td class="okc">${totalOk}</td><td class="ngc">${totalAtt-totalOk}</td><td>${pct(totalOk,totalAtt)}</td></tr>`:"";
   return ZONES.map(k=>{
     const o=t[k], att=o.ok+o.ng;
     const editCell=edit?`<td><button class="stepbtn minus" onclick="zFix('${k}','ok',-1)">−</button><button class="stepbtn" onclick="zFix('${k}','ok',1)">＋</button></td>
       <td><button class="stepbtn minus" onclick="zFix('${k}','ng',-1)">−</button><button class="stepbtn" onclick="zFix('${k}','ng',1)">＋</button></td>`:"";
     return `<tr><td class="nm">${ZNAME[k]}</td><td>${att}</td><td>${att}/${totalAtt} (${pct(att,totalAtt)})</td><td class="okc">${o.ok}</td><td class="ngc">${o.ng}</td><td>${pct(o.ok,att)}</td>${editCell}</tr>`;
-  }).join("");
+  }).join("")+totalRow;
 }
 function courtHTML(){
   if(!active){
@@ -966,7 +968,7 @@ function zoneSection(g){
     <div style="flex:1; min-width:300px;">
       <div class="tablewrap"><table class="stats">
         <tr><th>エリア</th><th>シュート数</th><th>割合</th><th>成功</th><th>失敗</th><th>成功率</th></tr>
-        ${zoneTableRows(g,false)}
+        ${zoneTableRows(g,false,null,true)}
       </table></div>
       <div class="muted" style="margin-top:8px;">「割合」= そのエリアの本数/総シュート数(エリア記録のあるもの)。</div>
     </div>
@@ -1142,14 +1144,31 @@ function totalHTML(){
       <td>${av(s.bl)}</td><td>${av(s.st)}</td><td>${av(s.as)}</td><td>${av(s.to)}</td><td>${av(s.f)}</td>
       <td><b>${av(p)}</b></td></tr>`;
   }).join("");
+  /* チーム全体(選択中の全選手の合計) */
+  const TT={gl:0,sh:0,ftm:0,fta:0,or:0,dr:0,rl:0,bl:0,st:0,as:0,to:0,f:0};
+  list.forEach(([num,o])=>{ Object.keys(TT).forEach(k=>TT[k]+=o.s[k]); });
+  const TP=TT.gl*2+TT.ftm;
+  const teamSumRow=`<tr class="total"><td class="nm">チーム全体</td><td>${target.length}</td>
+    <td>${TT.gl}/${TT.sh}</td><td>${pct(TT.gl,TT.sh)}</td>
+    <td>${TT.ftm}/${TT.fta}</td><td>${pct(TT.ftm,TT.fta)}</td>
+    <td>${TT.or}</td><td>${TT.dr}</td><td><b>${TT.or+TT.dr+TT.rl}</b></td>
+    <td>${TT.bl}</td><td>${TT.st}</td><td>${TT.as}</td><td>${TT.to}</td><td>${TT.f}</td>
+    <td><b>${TP}</b></td></tr>`;
+  const tav=x=>target.length? (x/target.length).toFixed(1) : "-";
+  const teamAvgRow=`<tr class="total"><td class="nm">チーム全体</td><td>${target.length}</td>
+    <td>${tav(TT.gl)}/${tav(TT.sh)}</td><td>${pct(TT.gl,TT.sh)}</td>
+    <td>${tav(TT.ftm)}/${tav(TT.fta)}</td><td>${pct(TT.ftm,TT.fta)}</td>
+    <td>${tav(TT.or)}</td><td>${tav(TT.dr)}</td><td><b>${tav(TT.or+TT.dr+TT.rl)}</b></td>
+    <td>${tav(TT.bl)}</td><td>${tav(TT.st)}</td><td>${tav(TT.as)}</td><td>${tav(TT.to)}</td><td>${tav(TT.f)}</td>
+    <td><b>${tav(TP)}</b></td></tr>`;
   const head=last=>`<tr><th>選手</th><th>試合数</th><th>シュート<br>GL/SH</th><th>成功率</th><th>FT</th><th>FT%</th><th>OR</th><th>DR</th><th>R計</th><th>B</th><th>ST</th><th>A</th><th>TO</th><th>F</th><th>${last}</th></tr>`;
   const table = target.length===0
     ? `<div class="empty">試合が選択されていません。下の一覧から選んでください。</div>`
     : `<h2 class="sec" style="margin-top:12px;">合計</h2>
-      <div class="tablewrap"><table class="stats">${head("総得点")}${rows}</table></div>
+      <div class="tablewrap"><table class="stats">${head("総得点")}${rows}${teamSumRow}</table></div>
       <h2 class="sec" style="margin-top:16px;">1試合あたりの平均</h2>
-      <div class="tablewrap"><table class="stats">${head("平均得点")}${avgRows}</table></div>
-      <div class="muted" style="margin-top:6px;">平均は出場した試合数で割った1試合あたりの値です。成功率・FT%は期間全体の割合を表示しています。</div>`;
+      <div class="tablewrap"><table class="stats">${head("平均得点")}${avgRows}${teamAvgRow}</table></div>
+      <div class="muted" style="margin-top:6px;">平均は出場した試合数で割った1試合あたりの値です(チーム全体の行は選択中の試合数で割った値)。成功率・FT%は期間全体の割合を表示しています。</div>`;
   /* 通算のエリア別集計: 選択中の試合を合算した擬似ゲームを作って詳細画面の部品を再利用 */
   const gm=list.map(([num])=>num);
   const snap={}; list.forEach(([num,o])=>snap[num]=roster[num]||o.name);
